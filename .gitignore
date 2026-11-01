@@ -1,0 +1,21 @@
+# Godot 4 .gitignore
+.godot/
+*.translation
+*.import
+export_presets.cfg.local
+
+# Python venv
+.venv/
+__pycache__/
+*.pyc
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# User stagebuilder autosave & local tests
+*.stagebuilder.bak
+autosave.stagebuilder
+user/
+

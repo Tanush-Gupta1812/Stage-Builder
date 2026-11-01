@@ -1,0 +1,349 @@
+{
+  "$schema": "./catalog.schema.json",
+  "version": "1.0.0",
+  "name": "Stage-Builder Standard Production Catalog",
+  "assets": [
+    {
+      "id": "truss_straight_05m",
+      "name": "Box Truss 0.5m",
+      "category": "Truss",
+      "dimensions": { "x": 0.3, "y": 0.3, "z": 0.5 },
+      "weight_kg": 6.0,
+      "mesh_generator": "gen_truss_straight",
+      "tags": ["truss", "rigging", "aluminum", "f34", "30cm"],
+      "snap_points": [
+        { "pos": [0.0, 0.0, -0.25], "normal": [0.0, 0.0, -1.0], "tag": "truss_30" },
+        { "pos": [0.0, 0.0, 0.25], "normal": [0.0, 0.0, 1.0], "tag": "truss_30" }
+      ]
+    },
+    {
+      "id": "truss_straight_1m",
+      "name": "Box Truss 1m",
+      "category": "Truss",
+      "dimensions": { "x": 0.3, "y": 0.3, "z": 1.0 },
+      "weight_kg": 9.0,
+      "mesh_generator": "gen_truss_straight",
+      "tags": ["truss", "rigging", "aluminum", "f34", "30cm"],
+      "snap_points": [
+        { "pos": [0.0, 0.0, -0.5], "normal": [0.0, 0.0, -1.0], "tag": "truss_30" },
+        { "pos": [0.0, 0.0, 0.5], "normal": [0.0, 0.0, 1.0], "tag": "truss_30" }
+      ]
+    },
+    {
+      "id": "truss_straight_2m",
+      "name": "Box Truss 2m",
+      "category": "Truss",
+      "dimensions": { "x": 0.3, "y": 0.3, "z": 2.0 },
+      "weight_kg": 15.0,
+      "mesh_generator": "gen_truss_straight",
+      "tags": ["truss", "rigging", "aluminum", "f34", "30cm"],
+      "snap_points": [
+        { "pos": [0.0, 0.0, -1.0], "normal": [0.0, 0.0, -1.0], "tag": "truss_30" },
+        { "pos": [0.0, 0.0, 1.0], "normal": [0.0, 0.0, 1.0], "tag": "truss_30" }
+      ]
+    },
+    {
+      "id": "truss_straight_3m",
+      "name": "Box Truss 3m",
+      "category": "Truss",
+      "dimensions": { "x": 0.3, "y": 0.3, "z": 3.0 },
+      "weight_kg": 21.0,
+      "mesh_generator": "gen_truss_straight",
+      "tags": ["truss", "rigging", "aluminum", "f34", "30cm"],
+      "snap_points": [
+        { "pos": [0.0, 0.0, -1.5], "normal": [0.0, 0.0, -1.0], "tag": "truss_30" },
+        { "pos": [0.0, 0.0, 1.5], "normal": [0.0, 0.0, 1.0], "tag": "truss_30" }
+      ]
+    },
+    {
+      "id": "truss_corner",
+      "name": "Truss 6-Way Corner",
+      "category": "Truss",
+      "dimensions": { "x": 0.3, "y": 0.3, "z": 0.3 },
+      "weight_kg": 8.0,
+      "mesh_generator": "gen_truss_corner",
+      "tags": ["truss", "corner", "junction", "f34"],
+      "snap_points": [
+        { "pos": [0.0, 0.0, -0.15], "normal": [0.0, 0.0, -1.0], "tag": "truss_30" },
+        { "pos": [0.0, 0.0, 0.15], "normal": [0.0, 0.0, 1.0], "tag": "truss_30" },
+        { "pos": [-0.15, 0.0, 0.0], "normal": [-1.0, 0.0, 0.0], "tag": "truss_30" },
+        { "pos": [0.15, 0.0, 0.0], "normal": [1.0, 0.0, 0.0], "tag": "truss_30" },
+        { "pos": [0.0, -0.15, 0.0], "normal": [0.0, -1.0, 0.0], "tag": "truss_30" },
+        { "pos": [0.0, 0.15, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "truss_30" }
+      ]
+    },
+    {
+      "id": "truss_tower_section",
+      "name": "Truss Tower Section",
+      "category": "Truss",
+      "dimensions": { "x": 0.4, "y": 2.0, "z": 0.4 },
+      "weight_kg": 28.0,
+      "mesh_generator": "gen_truss_tower",
+      "tags": ["truss", "tower", "column", "vertical"],
+      "snap_points": [
+        { "pos": [0.0, -1.0, 0.0], "normal": [0.0, -1.0, 0.0], "tag": "tower_40" },
+        { "pos": [0.0, 1.0, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "tower_40" }
+      ]
+    },
+    {
+      "id": "truss_base_plate",
+      "name": "Truss Base Plate 1m",
+      "category": "Truss",
+      "dimensions": { "x": 1.0, "y": 0.02, "z": 1.0 },
+      "weight_kg": 45.0,
+      "mesh_generator": "gen_truss_base_plate",
+      "tags": ["truss", "base", "steel", "foundation"],
+      "snap_points": [
+        { "pos": [0.0, 0.01, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "truss_30" },
+        { "pos": [0.0, 0.01, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "tower_40" }
+      ]
+    },
+    {
+      "id": "staging_deck_2x1",
+      "name": "Stage Deck 2x1m",
+      "category": "Staging",
+      "dimensions": { "x": 2.0, "y": 0.4, "z": 1.0 },
+      "weight_kg": 32.0,
+      "mesh_generator": "gen_stage_deck",
+      "tags": ["staging", "deck", "platform", "riser"],
+      "snap_points": [
+        { "pos": [-1.0, 0.0, 0.0], "normal": [-1.0, 0.0, 0.0], "tag": "deck_edge_1m" },
+        { "pos": [1.0, 0.0, 0.0], "normal": [1.0, 0.0, 0.0], "tag": "deck_edge_1m" },
+        { "pos": [0.0, 0.0, -0.5], "normal": [0.0, 0.0, -1.0], "tag": "deck_edge_2m" },
+        { "pos": [0.0, 0.0, 0.5], "normal": [0.0, 0.0, 1.0], "tag": "deck_edge_2m" }
+      ]
+    },
+    {
+      "id": "staging_deck_1x1",
+      "name": "Stage Deck 1x1m",
+      "category": "Staging",
+      "dimensions": { "x": 1.0, "y": 0.4, "z": 1.0 },
+      "weight_kg": 18.0,
+      "mesh_generator": "gen_stage_deck",
+      "tags": ["staging", "deck", "platform", "riser", "compact"],
+      "snap_points": [
+        { "pos": [-0.5, 0.0, 0.0], "normal": [-1.0, 0.0, 0.0], "tag": "deck_edge_1m" },
+        { "pos": [0.5, 0.0, 0.0], "normal": [1.0, 0.0, 0.0], "tag": "deck_edge_1m" },
+        { "pos": [0.0, 0.0, -0.5], "normal": [0.0, 0.0, -1.0], "tag": "deck_edge_1m" },
+        { "pos": [0.0, 0.0, 0.5], "normal": [0.0, 0.0, 1.0], "tag": "deck_edge_1m" }
+      ]
+    },
+    {
+      "id": "staging_stairs",
+      "name": "Modular Stage Stairs",
+      "category": "Staging",
+      "dimensions": { "x": 1.0, "y": 0.8, "z": 1.2 },
+      "weight_kg": 25.0,
+      "mesh_generator": "gen_stage_stairs",
+      "tags": ["staging", "stairs", "steps", "access"],
+      "snap_points": [
+        { "pos": [0.0, 0.4, -0.6], "normal": [0.0, 0.0, -1.0], "tag": "deck_edge_1m" }
+      ]
+    },
+    {
+      "id": "staging_handrail",
+      "name": "Safety Handrail 2m",
+      "category": "Staging",
+      "dimensions": { "x": 2.0, "y": 1.1, "z": 0.05 },
+      "weight_kg": 12.0,
+      "mesh_generator": "gen_stage_handrail",
+      "tags": ["staging", "safety", "guardrail", "handrail"],
+      "snap_points": [
+        { "pos": [0.0, -0.55, 0.0], "normal": [0.0, -1.0, 0.0], "tag": "deck_edge_2m" }
+      ]
+    },
+    {
+      "id": "staging_barricade",
+      "name": "Crowd Barrier",
+      "category": "Staging",
+      "dimensions": { "x": 1.0, "y": 1.2, "z": 0.8 },
+      "weight_kg": 35.0,
+      "mesh_generator": "gen_crowd_barrier",
+      "tags": ["staging", "barrier", "mojo", "pit", "crowd control"],
+      "snap_points": [
+        { "pos": [-0.5, 0.0, 0.0], "normal": [-1.0, 0.0, 0.0], "tag": "barrier_side" },
+        { "pos": [0.5, 0.0, 0.0], "normal": [1.0, 0.0, 0.0], "tag": "barrier_side" }
+      ]
+    },
+    {
+      "id": "audio_line_array",
+      "name": "Line Array Module",
+      "category": "Audio",
+      "dimensions": { "x": 1.0, "y": 0.35, "z": 0.5 },
+      "weight_kg": 42.0,
+      "mesh_generator": "gen_audio_line_array",
+      "tags": ["audio", "speaker", "pa", "flown", "rigging"],
+      "snap_points": [
+        { "pos": [0.0, 0.175, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "line_array_link" },
+        { "pos": [0.0, -0.175, 0.0], "normal": [0.0, -1.0, 0.0], "tag": "line_array_link" }
+      ]
+    },
+    {
+      "id": "audio_subwoofer",
+      "name": "Dual 18-inch Subwoofer",
+      "category": "Audio",
+      "dimensions": { "x": 1.2, "y": 0.6, "z": 0.8 },
+      "weight_kg": 85.0,
+      "mesh_generator": "gen_audio_subwoofer",
+      "tags": ["audio", "sub", "bass", "ground stack"],
+      "snap_points": [
+        { "pos": [0.0, 0.3, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "sub_stack" },
+        { "pos": [0.0, -0.3, 0.0], "normal": [0.0, -1.0, 0.0], "tag": "sub_stack" },
+        { "pos": [-0.6, 0.0, 0.0], "normal": [-1.0, 0.0, 0.0], "tag": "sub_side" },
+        { "pos": [0.6, 0.0, 0.0], "normal": [1.0, 0.0, 0.0], "tag": "sub_side" }
+      ]
+    },
+    {
+      "id": "audio_stage_monitor",
+      "name": "Stage Monitor Wedge",
+      "category": "Audio",
+      "dimensions": { "x": 0.6, "y": 0.35, "z": 0.45 },
+      "weight_kg": 22.0,
+      "mesh_generator": "gen_audio_monitor",
+      "tags": ["audio", "monitor", "wedge", "foldback"],
+      "snap_points": []
+    },
+    {
+      "id": "audio_foh_console",
+      "name": "FOH Audio Console",
+      "category": "Audio",
+      "dimensions": { "x": 1.1, "y": 0.95, "z": 0.8 },
+      "weight_kg": 48.0,
+      "mesh_generator": "gen_audio_foh",
+      "tags": ["audio", "foh", "mixer", "desk", "control"],
+      "snap_points": []
+    },
+    {
+      "id": "audio_amp_rack",
+      "name": "Amp Rack Flight Case",
+      "category": "Audio",
+      "dimensions": { "x": 0.6, "y": 0.9, "z": 0.7 },
+      "weight_kg": 75.0,
+      "mesh_generator": "gen_flight_case_rack",
+      "tags": ["audio", "power", "rack", "flightcase", "amps"],
+      "snap_points": [
+        { "pos": [0.0, 0.45, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "rack_stack" }
+      ]
+    },
+    {
+      "id": "lighting_moving_head",
+      "name": "Moving Head Spot/Wash",
+      "category": "Lighting",
+      "dimensions": { "x": 0.45, "y": 0.7, "z": 0.4 },
+      "weight_kg": 24.0,
+      "mesh_generator": "gen_lighting_moving_head",
+      "tags": ["lighting", "spot", "beam", "wash", "dmx", "rigged"],
+      "snap_points": [
+        { "pos": [0.0, 0.35, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "truss_clamp" },
+        { "pos": [0.0, -0.35, 0.0], "normal": [0.0, -1.0, 0.0], "tag": "floor_mount" }
+      ]
+    },
+    {
+      "id": "lighting_par_can",
+      "name": "Touring PAR Can",
+      "category": "Lighting",
+      "dimensions": { "x": 0.28, "y": 0.35, "z": 0.28 },
+      "weight_kg": 4.5,
+      "mesh_generator": "gen_lighting_par",
+      "tags": ["lighting", "par", "wash", "stage light", "led"],
+      "snap_points": [
+        { "pos": [0.0, 0.175, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "truss_clamp" }
+      ]
+    },
+    {
+      "id": "lighting_led_bar",
+      "name": "LED Batten Bar 1m",
+      "category": "Lighting",
+      "dimensions": { "x": 1.0, "y": 0.12, "z": 0.15 },
+      "weight_kg": 6.0,
+      "mesh_generator": "gen_lighting_bar",
+      "tags": ["lighting", "bar", "batten", "linear", "pixel"],
+      "snap_points": [
+        { "pos": [-0.5, 0.0, 0.0], "normal": [-1.0, 0.0, 0.0], "tag": "batten_link" },
+        { "pos": [0.5, 0.0, 0.0], "normal": [1.0, 0.0, 0.0], "tag": "batten_link" }
+      ]
+    },
+    {
+      "id": "video_led_panel",
+      "name": "LED Wall Panel 0.5x0.5m",
+      "category": "Video",
+      "dimensions": { "x": 0.5, "y": 0.5, "z": 0.08 },
+      "weight_kg": 8.5,
+      "mesh_generator": "gen_video_led_panel",
+      "tags": ["video", "screen", "led wall", "display", "modular"],
+      "snap_points": [
+        { "pos": [-0.25, 0.0, 0.0], "normal": [-1.0, 0.0, 0.0], "tag": "led_wall_50" },
+        { "pos": [0.25, 0.0, 0.0], "normal": [1.0, 0.0, 0.0], "tag": "led_wall_50" },
+        { "pos": [0.0, -0.25, 0.0], "normal": [0.0, -1.0, 0.0], "tag": "led_wall_50" },
+        { "pos": [0.0, 0.25, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "led_wall_50" }
+      ]
+    },
+    {
+      "id": "power_distro_rack",
+      "name": "Power Distro Rack",
+      "category": "Power",
+      "dimensions": { "x": 0.6, "y": 0.85, "z": 0.6 },
+      "weight_kg": 55.0,
+      "mesh_generator": "gen_power_distro",
+      "tags": ["power", "distro", "3phase", "electrical"],
+      "snap_points": []
+    },
+    {
+      "id": "power_water_tank",
+      "name": "Ballast Water Tank (IBC)",
+      "category": "Power",
+      "dimensions": { "x": 1.0, "y": 1.15, "z": 1.2 },
+      "weight_kg": 1050.0,
+      "mesh_generator": "gen_ballast_tank",
+      "tags": ["power", "ballast", "ibc", "weight", "rigging counterweight"],
+      "snap_points": [
+        { "pos": [0.0, 0.575, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "ballast_top" }
+      ]
+    },
+    {
+      "id": "dj_table_booth",
+      "name": "DJ Table with Booth",
+      "category": "DJ",
+      "dimensions": { "x": 1.8, "y": 1.0, "z": 0.75 },
+      "weight_kg": 30.0,
+      "mesh_generator": "gen_dj_booth",
+      "tags": ["dj", "booth", "table", "facade", "performance"],
+      "snap_points": [
+        { "pos": [0.0, 0.5, 0.0], "normal": [0.0, 1.0, 0.0], "tag": "dj_surface" }
+      ]
+    },
+    {
+      "id": "dj_4deck_setup",
+      "name": "4-Deck DJ Flight Case",
+      "category": "DJ",
+      "dimensions": { "x": 1.5, "y": 0.2, "z": 0.5 },
+      "weight_kg": 26.0,
+      "mesh_generator": "gen_dj_setup",
+      "tags": ["dj", "cdj", "mixer", "decks", "player"],
+      "snap_points": [
+        { "pos": [0.0, -0.1, 0.0], "normal": [0.0, -1.0, 0.0], "tag": "dj_surface" }
+      ]
+    },
+    {
+      "id": "crowd_single_figure",
+      "name": "Single Audience Figure",
+      "category": "Crowd",
+      "dimensions": { "x": 0.45, "y": 1.75, "z": 0.3 },
+      "weight_kg": 70.0,
+      "mesh_generator": "gen_crowd_figure",
+      "tags": ["crowd", "human", "scale figure", "audience", "person"],
+      "snap_points": []
+    },
+    {
+      "id": "crowd_block",
+      "name": "Crowd Block 10x10m (100x MultiMesh)",
+      "category": "Crowd",
+      "dimensions": { "x": 10.0, "y": 1.8, "z": 10.0 },
+      "weight_kg": 7000.0,
+      "mesh_generator": "gen_crowd_multimesh_block",
+      "tags": ["crowd", "mass", "multimesh", "festival", "capacity", "100pax"],
+      "snap_points": []
+    }
+  ]
+}
+

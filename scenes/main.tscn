@@ -1,0 +1,205 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/main_ui.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/ui/menu_bar.gd" id="2_menu"]
+[ext_resource type="Script" path="res://scripts/ui/asset_panel.gd" id="3_asset"]
+[ext_resource type="Script" path="res://scripts/viewport/stage_viewport.gd" id="4_vp"]
+[ext_resource type="Script" path="res://scripts/viewport/stage_camera.gd" id="5_cam"]
+[ext_resource type="Script" path="res://scripts/viewport/ground_environment.gd" id="6_ground"]
+[ext_resource type="Script" path="res://scripts/viewport/grid_plane.gd" id="7_grid"]
+[ext_resource type="Script" path="res://scripts/viewport/transform_gizmo.gd" id="8_gizmo"]
+[ext_resource type="Script" path="res://scripts/ui/properties_panel.gd" id="9_prop"]
+[ext_resource type="Script" path="res://scripts/ui/status_bar.gd" id="10_stat"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.09, 0.09, 0.11, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.12, 0.13, 0.15, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2, 0.22, 0.25, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_statusbar"]
+bg_color = Color(0.10, 0.11, 0.12, 1)
+border_width_top = 1
+border_color = Color(0.2, 0.22, 0.25, 1)
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="Background" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="AppMenuBar" type="MenuBar" parent="VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+script = ExtResource("2_menu")
+
+[node name="MainSplit" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+
+[node name="AssetPanel" type="PanelContainer" parent="VBox/MainSplit"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+script = ExtResource("3_asset")
+
+[node name="AssetMargin" type="MarginContainer" parent="VBox/MainSplit/AssetPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="AssetVBox" type="VBoxContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="AssetTitle" type="Label" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Equipment Catalog"
+
+[node name="SearchInput" type="LineEdit" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Search equipment, tags..."
+clear_button_enabled = true
+
+[node name="CategoryFilter" type="OptionButton" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="AssetListContainer" type="VBoxContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/ScrollContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="StageViewport" type="SubViewportContainer" parent="VBox/MainSplit"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+stretch = true
+script = ExtResource("4_vp")
+
+[node name="SubViewport" type="SubViewport" parent="VBox/MainSplit/StageViewport"]
+handle_input_locally = true
+physics_object_picking = true
+size = Vector2i(980, 836)
+render_target_update_mode = 3
+
+[node name="StageCamera" type="Camera3D" parent="VBox/MainSplit/StageViewport/SubViewport"]
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 8, 14)
+script = ExtResource("5_cam")
+
+[node name="GroundEnvironment" type="Node3D" parent="VBox/MainSplit/StageViewport/SubViewport"]
+script = ExtResource("6_ground")
+
+[node name="GridPlane" type="Node3D" parent="VBox/MainSplit/StageViewport/SubViewport"]
+script = ExtResource("7_grid")
+
+[node name="StageContainer" type="Node3D" parent="VBox/MainSplit/StageViewport/SubViewport"]
+
+[node name="TransformGizmo" type="Node3D" parent="VBox/MainSplit/StageViewport/SubViewport"]
+script = ExtResource("8_gizmo")
+
+[node name="PropertiesPanel" type="PanelContainer" parent="VBox/MainSplit"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+script = ExtResource("9_prop")
+
+[node name="PropMargin" type="MarginContainer" parent="VBox/MainSplit/PropertiesPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="PropScroll" type="ScrollContainer" parent="VBox/MainSplit/PropertiesPanel/PropMargin"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="ContentContainer" type="VBoxContainer" parent="VBox/MainSplit/PropertiesPanel/PropMargin/PropScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="StatusBar" type="PanelContainer" parent="VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_statusbar")
+script = ExtResource("10_stat")
+
+[node name="StatusHBox" type="HBoxContainer" parent="VBox/StatusBar"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="StatusLabel" type="Label" parent="VBox/StatusBar/StatusHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+text = "Ready"
+
+[node name="GridSnapButton" type="Button" parent="VBox/StatusBar/StatusHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Grid Snap: ON"
+
+[node name="GridStepButton" type="OptionButton" parent="VBox/StatusBar/StatusHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+
+[node name="PointSnapButton" type="Button" parent="VBox/StatusBar/StatusHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Point Snap: ON"
+
+[node name="StatsLabel" type="Label" parent="VBox/StatusBar/StatusHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Items: 0  |  Weight: 0.0 kg  |  FPS: 60"
+

@@ -1,0 +1,156 @@
+extends Node
+
+## Central application state orchestrator for Stage-Builder.
+## Manages selection, tool modes, snapping preferences, project metadata, and scene signals.
+
+signal selection_changed(selected_objects: Array[StageObject])
+signal tool_changed(new_tool: String)
+signal project_modified
+signal project_saved(path: String)
+signal project_loaded(path: String)
+signal grid_toggled(is_visible: bool)
+signal snap_toggled(is_enabled: bool)
+signal ground_changed(ground_type: String)
+signal status_message(text: String)
+signal request_screenshot
+
+enum ToolMode {
+	SELECT,
+	PLACE,
+	MOVE,
+	ROTATE,
+	SCALE
+}
+
+var current_tool: ToolMode = ToolMode.SELECT:
+	set(val):
+		if current_tool != val:
+			current_tool = val
+			tool_changed.emit(get_tool_name(current_tool))
+
+var pending_placement_asset_id: String = ""
+
+var selected_objects: Array[StageObject] = []
+var stage_container: Node3D = null
+
+# Grid and Snap Settings
+var show_grid: bool = true:
+	set(val):
+		if show_grid != val:
+			show_grid = val
+			grid_toggled.emit(show_grid)
+
+var snap_to_grid: bool = true:
+	set(val):
+		if snap_to_grid != val:
+			snap_to_grid = val
+			snap_toggled.emit(snap_to_grid)
+
+var grid_step: float = 0.5 # 0.25m, 0.5m, 1.0m
+var snap_to_points: bool = true
+var snap_threshold: float = 0.35 # in meters
+
+# Ground environment
+var current_ground: String = "concrete":
+	set(val):
+		if current_ground != val:
+			current_ground = val
+			ground_changed.emit(current_ground)
+
+# Project info
+var current_project_path: String = ""
+var is_modified: bool = false
+var project_name: String = "Untitled Stage"
+
+func _ready() -> void:
+	project_modified.connect(func(): is_modified = true)
+
+func get_tool_name(mode: ToolMode) -> String:
+	match mode:
+		ToolMode.SELECT: return "Select"
+		ToolMode.PLACE: return "Place"
+		ToolMode.MOVE: return "Move"
+		ToolMode.ROTATE: return "Rotate"
+		ToolMode.SCALE: return "Scale"
+	return "Unknown"
+
+# --- Selection Management ---
+
+func set_selection(objects: Array[StageObject]) -> void:
+	# Deselect current
+	for obj in selected_objects:
+		if is_instance_valid(obj):
+			obj.is_selected = false
+
+	selected_objects.clear()
+	for obj in objects:
+		if is_instance_valid(obj):
+			selected_objects.append(obj)
+			obj.is_selected = true
+
+	selection_changed.emit(selected_objects)
+
+func add_to_selection(obj: StageObject) -> void:
+	if not is_instance_valid(obj) or selected_objects.has(obj):
+		return
+	selected_objects.append(obj)
+	obj.is_selected = true
+	selection_changed.emit(selected_objects)
+
+func remove_from_selection(obj: StageObject) -> void:
+	if not is_instance_valid(obj):
+		return
+	var idx := selected_objects.find(obj)
+	if idx != -1:
+		selected_objects.remove_at(idx)
+		obj.is_selected = false
+		selection_changed.emit(selected_objects)
+
+func toggle_selection(obj: StageObject) -> void:
+	if selected_objects.has(obj):
+		remove_from_selection(obj)
+	else:
+		add_to_selection(obj)
+
+func clear_selection() -> void:
+	set_selection([])
+
+func select_all() -> void:
+	if not stage_container:
+		return
+	var all_objs: Array[StageObject] = []
+	for child in stage_container.get_children():
+		if child is StageObject:
+			all_objs.append(child)
+	set_selection(all_objs)
+
+# --- Stage Statistics ---
+
+func get_stage_objects() -> Array[StageObject]:
+	var list: Array[StageObject] = []
+	if stage_container:
+		for child in stage_container.get_children():
+			if child is StageObject:
+				list.append(child)
+	return list
+
+func get_total_weight() -> float:
+	var total := 0.0
+	for obj in get_stage_objects():
+		total += obj.weight_kg
+	return total
+
+func get_total_object_count() -> int:
+	return get_stage_objects().size()
+
+# --- Tool Activation ---
+
+func start_placement(catalog_id: String) -> void:
+	pending_placement_asset_id = catalog_id
+	current_tool = ToolMode.PLACE
+	status_message.emit("Placement Mode: Click on stage or equipment to place. Esc to cancel.")
+
+func cancel_placement() -> void:
+	pending_placement_asset_id = ""
+	current_tool = ToolMode.SELECT
+	status_message.emit("Ready")

@@ -1,0 +1,53 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/test/test_performance.gd" id="1_test"]
+[ext_resource type="Script" path="res://scripts/viewport/ground_environment.gd" id="2_ground"]
+[ext_resource type="Script" path="res://scripts/viewport/grid_plane.gd" id="3_grid"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud"]
+bg_color = Color(0.1, 0.12, 0.15, 0.85)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="TestPerformance" type="Node3D"]
+script = ExtResource("1_test")
+
+[node name="GroundEnvironment" type="Node3D" parent="."]
+script = ExtResource("2_ground")
+
+[node name="GridPlane" type="Node3D" parent="."]
+script = ExtResource("3_grid")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 25, 45)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 380.0
+offset_bottom = 120.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="CanvasLayer/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Stage-Builder 5,000 Object Stress Test"
+
+[node name="CountLabel" type="Label" parent="CanvasLayer/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Spawned Objects: 0 / 5000"
+
+[node name="StatsLabel" type="Label" parent="CanvasLayer/Panel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "FPS: Measuring..."
+
