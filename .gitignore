@@ -2,6 +2,7 @@
 .godot/
 *.translation
 *.import
+*.uid
 export_presets.cfg.local
 
 # Python venv

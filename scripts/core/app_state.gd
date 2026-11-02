@@ -1,15 +1,18 @@
 extends Node
 
+const StageGroup = preload("res://scripts/core/stage_group.gd")
+
 ## Central application state orchestrator for Stage-Builder.
 ## Manages selection, tool modes, snapping preferences, project metadata, and scene signals.
 
-signal selection_changed(selected_objects: Array[StageObject])
+signal selection_changed(selected_objects: Array[Node3D])
 signal tool_changed(new_tool: String)
 signal project_modified
 signal project_saved(path: String)
 signal project_loaded(path: String)
 signal grid_toggled(is_visible: bool)
 signal snap_toggled(is_enabled: bool)
+signal point_snap_toggled(is_enabled: bool)
 signal ground_changed(ground_type: String)
 signal status_message(text: String)
 signal request_screenshot
@@ -30,7 +33,7 @@ var current_tool: ToolMode = ToolMode.SELECT:
 
 var pending_placement_asset_id: String = ""
 
-var selected_objects: Array[StageObject] = []
+var selected_objects: Array[Node3D] = []
 var stage_container: Node3D = null
 
 # Grid and Snap Settings
@@ -47,8 +50,13 @@ var snap_to_grid: bool = true:
 			snap_toggled.emit(snap_to_grid)
 
 var grid_step: float = 0.5 # 0.25m, 0.5m, 1.0m
-var snap_to_points: bool = true
-var snap_threshold: float = 0.35 # in meters
+var snap_to_points: bool = true:
+	set(val):
+		if snap_to_points != val:
+			snap_to_points = val
+			point_snap_toggled.emit(snap_to_points)
+
+var snap_threshold: float = 0.25 # in meters (standard snap radius)
 
 # Ground environment
 var current_ground: String = "concrete":
@@ -76,37 +84,41 @@ func get_tool_name(mode: ToolMode) -> String:
 
 # --- Selection Management ---
 
-func set_selection(objects: Array[StageObject]) -> void:
+func set_selection(objects: Array) -> void:
 	# Deselect current
 	for obj in selected_objects:
 		if is_instance_valid(obj):
-			obj.is_selected = false
+			if "is_selected" in obj:
+				obj.is_selected = false
 
 	selected_objects.clear()
 	for obj in objects:
-		if is_instance_valid(obj):
+		if is_instance_valid(obj) and obj is Node3D:
 			selected_objects.append(obj)
-			obj.is_selected = true
+			if "is_selected" in obj:
+				obj.is_selected = true
 
 	selection_changed.emit(selected_objects)
 
-func add_to_selection(obj: StageObject) -> void:
+func add_to_selection(obj: Node3D) -> void:
 	if not is_instance_valid(obj) or selected_objects.has(obj):
 		return
 	selected_objects.append(obj)
-	obj.is_selected = true
+	if "is_selected" in obj:
+		obj.is_selected = true
 	selection_changed.emit(selected_objects)
 
-func remove_from_selection(obj: StageObject) -> void:
+func remove_from_selection(obj: Node3D) -> void:
 	if not is_instance_valid(obj):
 		return
 	var idx := selected_objects.find(obj)
 	if idx != -1:
 		selected_objects.remove_at(idx)
-		obj.is_selected = false
+		if "is_selected" in obj:
+			obj.is_selected = false
 		selection_changed.emit(selected_objects)
 
-func toggle_selection(obj: StageObject) -> void:
+func toggle_selection(obj: Node3D) -> void:
 	if selected_objects.has(obj):
 		remove_from_selection(obj)
 	else:
@@ -118,21 +130,28 @@ func clear_selection() -> void:
 func select_all() -> void:
 	if not stage_container:
 		return
-	var all_objs: Array[StageObject] = []
+	var all_items: Array[Node3D] = []
 	for child in stage_container.get_children():
-		if child is StageObject:
-			all_objs.append(child)
-	set_selection(all_objs)
+		if child is StageObject or child is StageGroup:
+			all_items.append(child)
+	set_selection(all_items)
 
 # --- Stage Statistics ---
 
 func get_stage_objects() -> Array[StageObject]:
 	var list: Array[StageObject] = []
 	if stage_container:
-		for child in stage_container.get_children():
-			if child is StageObject:
-				list.append(child)
+		_gather_stage_objects_recursive(stage_container, list)
 	return list
+
+func _gather_stage_objects_recursive(parent: Node, out_list: Array[StageObject]) -> void:
+	for child in parent.get_children():
+		if child is StageObject:
+			out_list.append(child)
+		elif child is StageGroup:
+			out_list.append_array(child.get_all_stage_objects())
+		else:
+			_gather_stage_objects_recursive(child, out_list)
 
 func get_total_weight() -> float:
 	var total := 0.0

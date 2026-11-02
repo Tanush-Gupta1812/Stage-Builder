@@ -18,13 +18,18 @@ config/icon="res://icon.svg"
 AppState="*res://scripts/core/app_state.gd"
 CatalogManager="*res://scripts/core/catalog_manager.gd"
 CommandManager="*res://scripts/core/command_manager.gd"
+UIScale="*res://scripts/core/ui_scale.gd"
+PerformanceSettings="*res://scripts/core/performance_settings.gd"
 
 [display]
 
 window/size/viewport_width=1600
 window/size/viewport_height=900
+window/size/min_size=Vector2i(825, 510)
 window/size/resizable=true
 window/vsync/vsync_mode=1
+window/dpi/allow_hidpi=true
+window/stretch/mode="disabled"
 
 [rendering]
 

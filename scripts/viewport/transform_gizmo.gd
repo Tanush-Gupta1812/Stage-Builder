@@ -5,13 +5,15 @@ extends Node3D
 ## Provides visual handles for 3-axis translation and Y-axis rotation with undo/redo support.
 
 enum AxisMode { NONE, AXIS_X, AXIS_Y, AXIS_Z, PLANE_XZ, ROT_Y }
+enum PivotDisplayMode { BASE_CENTER, GEOMETRIC_CENTER }
 
 var active_handle: AxisMode = AxisMode.NONE
+var pivot_mode: PivotDisplayMode = PivotDisplayMode.BASE_CENTER
 var is_dragging: bool = false
 var drag_start_mouse: Vector2 = Vector2.ZERO
 var drag_start_gizmo_pos: Vector3 = Vector3.ZERO
 var initial_transforms: Array[Transform3D] = []
-var target_objects: Array[StageObject] = []
+var target_objects: Array[Node3D] = []
 
 var _mat_x: StandardMaterial3D
 var _mat_y: StandardMaterial3D
@@ -155,7 +157,7 @@ func _build_rotation_ring() -> void:
 	handle_node.set_meta("axis_mode", AxisMode.ROT_Y)
 	add_child(handle_node)
 
-func _on_selection_changed(selected: Array[StageObject]) -> void:
+func _on_selection_changed(selected: Array) -> void:
 	if selected.is_empty():
 		visible = false
 		target_objects.clear()
@@ -165,6 +167,13 @@ func _on_selection_changed(selected: Array[StageObject]) -> void:
 	target_objects = selected.duplicate()
 	_update_gizmo_position()
 
+func toggle_pivot_mode() -> void:
+	if pivot_mode == PivotDisplayMode.BASE_CENTER:
+		pivot_mode = PivotDisplayMode.GEOMETRIC_CENTER
+	else:
+		pivot_mode = PivotDisplayMode.BASE_CENTER
+	_update_gizmo_position()
+
 func _update_gizmo_position() -> void:
 	if target_objects.is_empty():
 		return
@@ -172,7 +181,10 @@ func _update_gizmo_position() -> void:
 	var valid_count := 0
 	for obj in target_objects:
 		if is_instance_valid(obj):
-			center += obj.global_position
+			var pos := obj.global_position
+			if pivot_mode == PivotDisplayMode.GEOMETRIC_CENTER and obj is StageObject:
+				pos += obj.global_basis * Vector3(0, (obj as StageObject).pivot_offset_y, 0)
+			center += pos
 			valid_count += 1
 
 	if valid_count > 0:
@@ -203,7 +215,7 @@ func update_drag(camera: Camera3D, mouse_pos: Vector2) -> void:
 		if hit != null:
 			var hit_vec: Vector3 = (hit as Vector3) - drag_start_gizmo_pos
 			var angle := atan2(hit_vec.x, hit_vec.z)
-			if AppState.snap_to_grid: # 15 degree angle snap
+			if AppState.snap_to_grid and not SnapSystem.is_snap_disabled_by_modifier():
 				var step_rad := deg_to_rad(15.0)
 				angle = roundf(angle / step_rad) * step_rad
 
@@ -244,13 +256,18 @@ func update_drag(camera: Camera3D, mouse_pos: Vector2) -> void:
 			new_center.z = (hit as Vector3).z
 
 	# Snapping
-	var snap_res := SnapSystem.resolve_position(new_center, target_objects[0] if target_objects.size() == 1 else null)
+	var moving_obj: StageObject = target_objects[0] as StageObject if (target_objects.size() == 1 and target_objects[0] is StageObject) else null
+	var rot_basis := target_objects[0].global_basis if (target_objects.size() == 1) else Basis.IDENTITY
+	var snap_res := SnapSystem.resolve_position(new_center, moving_obj, rot_basis)
 	new_center = snap_res.position
 
-	var delta_pos := new_center - drag_start_gizmo_pos
-	for i in range(target_objects.size()):
-		if is_instance_valid(target_objects[i]):
-			target_objects[i].global_position = initial_transforms[i].origin + delta_pos
+	if target_objects.size() == 1:
+		target_objects[0].global_position = new_center
+	else:
+		var delta_pos := new_center - drag_start_gizmo_pos
+		for i in range(target_objects.size()):
+			if is_instance_valid(target_objects[i]):
+				target_objects[i].global_position = initial_transforms[i].origin + delta_pos
 
 	global_position = new_center
 
@@ -261,13 +278,19 @@ func end_drag() -> void:
 	is_dragging = false
 	active_handle = AxisMode.NONE
 
+	var changed := false
 	var final_transforms: Array[Transform3D] = []
-	for obj in target_objects:
+	for i in range(target_objects.size()):
+		var obj := target_objects[i]
 		if is_instance_valid(obj):
 			final_transforms.append(obj.global_transform)
+			if not obj.global_transform.is_equal_approx(initial_transforms[i]):
+				changed = true
 
-	# Execute Undoable Transform Command
-	var cmd := BaseCommand.TransformCommand.new(target_objects, initial_transforms, final_transforms)
-	CommandManager.execute_command(cmd)
+	# Execute exactly ONE Undoable Transform Command on release if moved
+	if changed:
+		var cmd := BaseCommand.TransformCommand.new(target_objects, initial_transforms, final_transforms)
+		CommandManager.execute_command(cmd)
+
 	_update_gizmo_position()
 

@@ -7,18 +7,46 @@ extends MenuBar
 signal request_open_file
 signal request_save_file(save_as: bool)
 signal request_new_file
+signal request_import_file
 signal request_show_shortcuts
 signal request_show_about
+signal request_toggle_catalog
+signal request_toggle_properties
+signal request_show_performance_settings
 
 var file_menu: PopupMenu
 var edit_menu: PopupMenu
 var view_menu: PopupMenu
+var perf_menu: PopupMenu
 var ground_menu: PopupMenu
 var help_menu: PopupMenu
 
 func _ready() -> void:
 	_create_menus()
 	CommandManager.history_changed.connect(_on_history_changed)
+	_on_history_changed(CommandManager.can_undo(), CommandManager.can_redo())
+
+	AppState.grid_toggled.connect(func(enabled: bool):
+		if view_menu:
+			var idx := view_menu.get_item_index(300)
+			if idx >= 0:
+				view_menu.set_item_checked(idx, enabled)
+	)
+	AppState.snap_toggled.connect(func(enabled: bool):
+		if view_menu:
+			var idx := view_menu.get_item_index(301)
+			if idx >= 0:
+				view_menu.set_item_checked(idx, enabled)
+	)
+	AppState.point_snap_toggled.connect(func(enabled: bool):
+		if view_menu:
+			var idx := view_menu.get_item_index(302)
+			if idx >= 0:
+				view_menu.set_item_checked(idx, enabled)
+	)
+
+	PerformanceSettings.settings_changed.connect(_update_perf_menu_checks)
+	_update_perf_menu_checks()
 
 func _create_menus() -> void:
 	var mod_key := PlatformUtils.get_modifier_name()
@@ -31,6 +59,8 @@ func _create_menus() -> void:
 	file_menu.add_separator()
 	file_menu.add_item("Save (" + mod_key + "+S)", 102)
 	file_menu.add_item("Save As...", 103)
+	file_menu.add_separator()
+	file_menu.add_item("Import 3D Asset (GLTF/GLB)...", 105)
 	file_menu.add_separator()
 	file_menu.add_item("Export Screenshot (PNG)...", 104)
 	file_menu.add_separator()
@@ -71,6 +101,31 @@ func _create_menus() -> void:
 	view_menu.add_item("Perspective View (Numpad 0)", 306)
 	view_menu.add_separator()
 	view_menu.add_item("Frame Selection (F)", 307)
+	view_menu.add_separator()
+	view_menu.add_check_item("Equipment Catalog (" + mod_key + "+[)", 308)
+	view_menu.set_item_checked(view_menu.get_item_count() - 1, true)
+	view_menu.add_check_item("Properties Inspector (" + mod_key + "+])", 309)
+	view_menu.set_item_checked(view_menu.get_item_count() - 1, true)
+	view_menu.add_separator()
+
+	# Performance Submenu
+	perf_menu = PopupMenu.new()
+	perf_menu.name = "PerformanceMenu"
+	perf_menu.add_radio_check_item("VSync (Default)", 311)
+	perf_menu.set_item_tooltip(0, "Synchronize rendering with display refresh rate to eliminate tearing. (On macOS, system compositor always enforces display sync).")
+	perf_menu.add_radio_check_item("Custom FPS Limit...", 312)
+	perf_menu.set_item_tooltip(1, "Cap rendering to a specific target frame rate. Disables VSync. (Note: On macOS, system sync may still cap rate to display Hz).")
+	perf_menu.add_radio_check_item("Unlimited", 313)
+	perf_menu.set_item_tooltip(2, "Uncapped rendering with VSync disabled. Note: on macOS, 'Unlimited' is not meaningful as macOS Metal compositor forces display sync.")
+	perf_menu.add_separator()
+	perf_menu.add_check_item("Limit to 30 FPS when Unfocused", 314)
+	perf_menu.set_item_tooltip(4, "Reduces engine rendering to 30 FPS whenever the application window loses focus or is minimized to save battery and GPU power.")
+	perf_menu.add_separator()
+	perf_menu.add_item("Frame Rate & Performance Settings...", 315)
+	perf_menu.id_pressed.connect(_on_perf_menu_pressed)
+	view_menu.add_child(perf_menu)
+	view_menu.add_submenu_node_item("Performance", perf_menu, 310)
+
 	view_menu.id_pressed.connect(_on_view_menu_pressed)
 	add_child(view_menu)
 
@@ -99,6 +154,7 @@ func _on_file_menu_pressed(id: int) -> void:
 		102: request_save_file.emit(false)
 		103: request_save_file.emit(true)
 		104: AppState.request_screenshot.emit()
+		105: request_import_file.emit()
 		109: get_tree().quit()
 
 func _on_edit_menu_pressed(id: int) -> void:
@@ -141,6 +197,20 @@ func _on_view_menu_pressed(id: int) -> void:
 		305: if camera: camera.set_view_side()
 		306: if camera: camera.set_view_perspective()
 		307: if camera: camera.frame_selection()
+		308: request_toggle_catalog.emit()
+		309: request_toggle_properties.emit()
+
+func set_catalog_checked(is_checked: bool) -> void:
+	if view_menu:
+		var idx := view_menu.get_item_index(308)
+		if idx >= 0:
+			view_menu.set_item_checked(idx, is_checked)
+
+func set_properties_checked(is_checked: bool) -> void:
+	if view_menu:
+		var idx := view_menu.get_item_index(309)
+		if idx >= 0:
+			view_menu.set_item_checked(idx, is_checked)
 
 func _on_ground_menu_pressed(id: int) -> void:
 	ground_menu.set_item_checked(0, id == 400)
@@ -160,4 +230,28 @@ func _on_history_changed(can_undo: bool, can_redo: bool) -> void:
 	if edit_menu:
 		edit_menu.set_item_disabled(0, not can_undo)
 		edit_menu.set_item_disabled(1, not can_redo)
+
+func _update_perf_menu_checks() -> void:
+	if not is_instance_valid(perf_menu):
+		return
+	var mode := PerformanceSettings.fps_mode
+	perf_menu.set_item_checked(0, mode == PerformanceSettings.FPSMode.VSYNC)
+	perf_menu.set_item_checked(1, mode == PerformanceSettings.FPSMode.CUSTOM_LIMIT)
+	perf_menu.set_item_checked(2, mode == PerformanceSettings.FPSMode.UNLIMITED)
+	perf_menu.set_item_checked(4, PerformanceSettings.limit_fps_unfocused)
+
+func _on_perf_menu_pressed(id: int) -> void:
+	match id:
+		311:
+			PerformanceSettings.set_fps_mode(PerformanceSettings.FPSMode.VSYNC)
+		312:
+			PerformanceSettings.set_fps_mode(PerformanceSettings.FPSMode.CUSTOM_LIMIT)
+			request_show_performance_settings.emit()
+		313:
+			PerformanceSettings.set_fps_mode(PerformanceSettings.FPSMode.UNLIMITED)
+		314:
+			PerformanceSettings.set_limit_fps_unfocused(not PerformanceSettings.limit_fps_unfocused)
+		315:
+			request_show_performance_settings.emit()
+
 

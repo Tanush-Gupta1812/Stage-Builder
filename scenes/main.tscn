@@ -65,9 +65,18 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 0
 
+[node name="ExpandLeftBtn" type="Button" parent="VBox/MainSplit"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(28, 0)
+layout_mode = 2
+tooltip_text = "Expand Equipment Catalog (Ctrl+[)"
+text = "📦
+▶"
+
 [node name="AssetPanel" type="PanelContainer" parent="VBox/MainSplit"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(300, 0)
+custom_minimum_size = Vector2(260, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 script = ExtResource("3_asset")
@@ -81,22 +90,80 @@ theme_override_constants/margin_bottom = 8
 
 [node name="AssetVBox" type="VBoxContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
-[node name="AssetTitle" type="Label" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
+[node name="HeaderHBox" type="HBoxContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
 layout_mode = 2
+
+[node name="AssetTitle" type="Label" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/HeaderHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 14
 text = "Equipment Catalog"
+clip_text = true
+
+[node name="ViewModeBtn" type="Button" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Grid"
+
+[node name="CollapseLeftBtn" type="Button" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+tooltip_text = "Collapse Panel (Ctrl+[)"
+text = "◀"
 
 [node name="SearchInput" type="LineEdit" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-placeholder_text = "Search equipment, tags..."
+placeholder_text = "Search 125+ equipment, tags..."
 clear_button_enabled = true
 
-[node name="CategoryFilter" type="OptionButton" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
+[node name="FiltersHBox" type="HBoxContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
+layout_mode = 2
+
+[node name="CategoryFilter" type="OptionButton" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/FiltersHBox"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+fit_to_longest_item = false
+
+[node name="SubcategoryFilter" type="OptionButton" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/FiltersHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+fit_to_longest_item = false
+
+[node name="TabHBox" type="HBoxContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
+layout_mode = 2
+
+[node name="TabAllBtn" type="Button" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/TabHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+text = "All"
+clip_text = true
+
+[node name="TabFavsBtn" type="Button" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/TabHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+text = "Favorites ★"
+clip_text = true
+
+[node name="TabRecentsBtn" type="Button" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/TabHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+text = "Recent 🕒"
+clip_text = true
 
 [node name="ScrollContainer" type="ScrollContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
 layout_mode = 2
@@ -109,8 +176,17 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
+[node name="AssetGridContainer" type="HFlowContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/ScrollContainer"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+
 [node name="StageViewport" type="SubViewportContainer" parent="VBox/MainSplit"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(400, 300)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -140,7 +216,7 @@ script = ExtResource("8_gizmo")
 
 [node name="PropertiesPanel" type="PanelContainer" parent="VBox/MainSplit"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(280, 0)
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 script = ExtResource("9_prop")
@@ -161,6 +237,15 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
+
+[node name="ExpandRightBtn" type="Button" parent="VBox/MainSplit"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(28, 0)
+layout_mode = 2
+tooltip_text = "Expand Properties Panel (Ctrl+])"
+text = "⚙
+◀"
 
 [node name="StatusBar" type="PanelContainer" parent="VBox"]
 unique_name_in_owner = true

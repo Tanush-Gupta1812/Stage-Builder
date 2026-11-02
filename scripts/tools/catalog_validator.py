@@ -1,7 +1,7 @@
 """
-Catalog Schema Validator for Stage-Builder
+Catalog Schema Validator for Stage-Builder (Phase 2)
 Validates data/catalog.json ensuring all assets adhere to physical real-world scale,
-contain necessary snap points, dimensions, weights, and generator IDs.
+contain necessary snap points, dimensions, weights, generator IDs, and optional variants.
 """
 
 import json
@@ -40,7 +40,9 @@ def validate_catalog(json_path: Path) -> bool:
 
     seen_ids = set()
     categories = {}
+    subcategories = {}
     total_snap_points = 0
+    total_variants = 0
     errors = []
 
     for idx, asset in enumerate(assets):
@@ -63,6 +65,13 @@ def validate_catalog(json_path: Path) -> bool:
             if not isinstance(val, (int, float)) or val <= 0:
                 errors.append(f"Asset '{asset_id}' invalid dimension '{axis}': {val} (must be positive number)")
 
+        # Check pivot normalization: resulting AABB min.y must be 0.0 within 1 mm
+        dim_y = dims.get("y", 1.0)
+        pivot_offset_y = asset.get("pivot_offset_y", dim_y * 0.5)
+        resulting_min_y = -dim_y * 0.5 + pivot_offset_y
+        if abs(resulting_min_y) > 0.001:
+            errors.append(f"Asset '{asset_id}' pivot normalization failed: resulting AABB min.y = {resulting_min_y:.4f}m (expected 0.0 within 1mm)")
+
         # Check weight
         weight = asset.get("weight_kg")
         if not isinstance(weight, (int, float)) or weight < 0:
@@ -79,22 +88,36 @@ def validate_catalog(json_path: Path) -> bool:
             if "tag" not in snap or not isinstance(snap["tag"], str):
                 errors.append(f"Asset '{asset_id}' snap_point[{s_idx}] missing or invalid 'tag'")
 
+        # Check variants if present
+        variants = asset.get("variants", [])
+        total_variants += len(variants)
+        for v_idx, variant in enumerate(variants):
+            if "id" not in variant or "name" not in variant:
+                errors.append(f"Asset '{asset_id}' variant[{v_idx}] must have 'id' and 'name'")
+
         category = asset.get("category", "Uncategorized")
         categories[category] = categories.get(category, 0) + 1
 
+        subcat = asset.get("subcategory", "General")
+        subcategories[subcat] = subcategories.get(subcat, 0) + 1
+
     if errors:
         print(f"Validation FAILED with {len(errors)} error(s):")
-        for err in errors:
+        for err in errors[:25]:
             print(f"  - {err}")
+        if len(errors) > 25:
+            print(f"  ... and {len(errors) - 25} more errors.")
         return False
 
     print("==================================================")
-    print("Stage-Builder Catalog Validation SUCCESS")
+    print("Stage-Builder Phase 2 Catalog Validation SUCCESS")
     print(f"Total Assets: {len(assets)}")
     print(f"Total Snap Points: {total_snap_points}")
-    print("Categories:")
+    print(f"Total Variants: {total_variants}")
+    print(f"Categories ({len(categories)}):")
     for cat, count in sorted(categories.items()):
         print(f"  - {cat}: {count} item(s)")
+    print(f"Subcategories: {len(subcategories)}")
     print("==================================================")
     return True
 

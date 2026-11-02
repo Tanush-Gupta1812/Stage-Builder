@@ -1,6 +1,10 @@
 class_name PropertiesPanel
 extends PanelContainer
 
+const StageGroup = preload("res://scripts/core/stage_group.gd")
+
+signal collapse_requested
+
 ## Right Inspector Panel for Stage-Builder.
 ## Displays live properties for single selection, multi-selection, or stage overview.
 
@@ -14,16 +18,61 @@ func _ready() -> void:
 	AppState.project_modified.connect(_on_project_modified)
 	_show_stage_overview()
 
-func _on_selection_changed(selected: Array[StageObject]) -> void:
+func _on_selection_changed(selected: Array) -> void:
 	if selected.is_empty():
 		_active_object = null
 		_show_stage_overview()
-	elif selected.size() == 1:
-		_active_object = selected[0]
+	elif selected.size() == 1 and selected[0] is StageObject:
+		_active_object = selected[0] as StageObject
 		_show_single_object_inspector(_active_object)
+	elif selected.size() == 1 and selected[0] is StageGroup:
+		_active_object = null
+		_show_group_inspector(selected[0] as StageGroup)
 	else:
 		_active_object = null
 		_show_multi_selection_inspector(selected)
+
+func _show_group_inspector(group: StageGroup) -> void:
+	_clear_content()
+	_create_header("Group: " + group.group_name, Color(0.3, 0.8, 0.6))
+
+	var objs := group.get_all_stage_objects()
+	var total_w := 0.0
+	for obj in objs:
+		if is_instance_valid(obj):
+			total_w += obj.weight_kg
+
+	_add_stat_row("Group Name:", group.group_name)
+	_add_stat_row("Contained Items:", "%d objects" % objs.size())
+	_add_stat_row("Combined Weight:", "%.1f kg" % total_w)
+
+	var btn_ungroup := Button.new()
+	btn_ungroup.text = "Ungroup (" + PlatformUtils.get_modifier_name() + "+Shift+G)"
+	btn_ungroup.pressed.connect(func():
+		var vp := get_tree().root.find_child("StageViewport", true, false)
+		if vp and vp.has_method("_ungroup_selection"):
+			vp._ungroup_selection()
+	)
+	content_container.add_child(btn_ungroup)
+
+	var btn_dup := Button.new()
+	btn_dup.text = "Duplicate Group"
+	btn_dup.pressed.connect(func():
+		var vp := get_tree().root.find_child("StageViewport", true, false)
+		if vp and vp.has_method("_duplicate_selection"):
+			vp._duplicate_selection()
+	)
+	content_container.add_child(btn_dup)
+
+	var btn_del := Button.new()
+	btn_del.text = "Delete Group"
+	btn_del.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	btn_del.pressed.connect(func():
+		var vp := get_tree().root.find_child("StageViewport", true, false)
+		if vp and vp.has_method("_delete_selection"):
+			vp._delete_selection()
+	)
+	content_container.add_child(btn_del)
 
 func _on_project_modified() -> void:
 	if AppState.selected_objects.is_empty():
@@ -35,19 +84,34 @@ func _clear_content() -> void:
 	for child in content_container.get_children():
 		child.queue_free()
 
+func _create_header(title_text: String, title_color: Color = Color(0.9, 0.95, 1.0)) -> void:
+	var hbox := HBoxContainer.new()
+	var title := Label.new()
+	title.text = title_text
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.clip_text = true
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", title_color)
+	hbox.add_child(title)
+
+	var collapse_btn := Button.new()
+	collapse_btn.text = "▶"
+	collapse_btn.tooltip_text = "Collapse Panel (Ctrl+] / Cmd+])"
+	collapse_btn.flat = true
+	collapse_btn.add_theme_font_size_override("font_size", 11)
+	collapse_btn.pressed.connect(func(): collapse_requested.emit())
+	hbox.add_child(collapse_btn)
+
+	content_container.add_child(hbox)
+	var sep := HSeparator.new()
+	content_container.add_child(sep)
+
 # --- Stage Overview Mode ---
 
 func _show_stage_overview() -> void:
 	_clear_content()
-
-	var title := Label.new()
-	title.text = "Stage Overview"
-	title.add_theme_font_size_override("font_size", 15)
-	title.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
-	content_container.add_child(title)
-
-	var sep := HSeparator.new()
-	content_container.add_child(sep)
+	_create_header("Stage Overview", Color(0.9, 0.95, 1.0))
 
 	var obj_count := AppState.get_total_object_count()
 	var total_kg := AppState.get_total_weight()
@@ -66,15 +130,7 @@ func _show_stage_overview() -> void:
 
 func _show_single_object_inspector(obj: StageObject) -> void:
 	_clear_content()
-
-	var title := Label.new()
-	title.text = "Properties: " + obj.asset_name
-	title.add_theme_font_size_override("font_size", 14)
-	title.add_theme_color_override("font_color", Color(0.4, 0.75, 1.0))
-	content_container.add_child(title)
-
-	var sep := HSeparator.new()
-	content_container.add_child(sep)
+	_create_header("Properties: " + obj.asset_name, Color(0.4, 0.75, 1.0))
 
 	# Name field
 	var lbl_name := Label.new()
@@ -94,9 +150,32 @@ func _show_single_object_inspector(obj: StageObject) -> void:
 	_add_stat_row("Dimensions:", "%.2fx%.2fx%.2f m" % [obj.dimensions.x, obj.dimensions.y, obj.dimensions.z])
 	_add_stat_row("Weight:", "%.1f kg" % obj.weight_kg)
 
-	# Position X, Y, Z
+	# Material / Color Variant Picker
+	if not obj.available_variants.is_empty():
+		var var_lbl := Label.new()
+		var_lbl.text = "Material / Color Variant:"
+		var_lbl.add_theme_font_size_override("font_size", 12)
+		content_container.add_child(var_lbl)
+
+		var var_opt := OptionButton.new()
+		var selected_idx := 0
+		for i in range(obj.available_variants.size()):
+			var v: Dictionary = obj.available_variants[i]
+			var_opt.add_item(v.get("name", "Default"), i)
+			if v.get("id", "") == obj.current_variant:
+				selected_idx = i
+		var_opt.select(selected_idx)
+		var_opt.item_selected.connect(func(idx: int):
+			if not _is_updating_ui and is_instance_valid(obj):
+				var target_vid: String = obj.available_variants[idx].get("id", "")
+				var cmd := BaseCommand.VariantChangeCommand.new(obj, obj.current_variant, target_vid)
+				CommandManager.execute_command(cmd)
+		)
+		content_container.add_child(var_opt)
+
+	# Base Center Position X, Y, Z
 	var pos_lbl := Label.new()
-	pos_lbl.text = "Position (X, Y, Z meters):"
+	pos_lbl.text = "Base Center (X, Y, Z meters):"
 	pos_lbl.add_theme_font_size_override("font_size", 12)
 	content_container.add_child(pos_lbl)
 
@@ -107,24 +186,27 @@ func _show_single_object_inspector(obj: StageObject) -> void:
 
 	spin_x.value_changed.connect(func(v: float):
 		if not _is_updating_ui and is_instance_valid(obj):
-			var old_t := [obj.global_transform]
-			var new_t := [obj.global_transform]
+			var old_t: Array[Transform3D] = [obj.global_transform]
+			var new_t: Array[Transform3D] = [obj.global_transform]
 			new_t[0].origin.x = v
-			CommandManager.execute_command(BaseCommand.TransformCommand.new([obj], old_t, new_t))
+			var targets: Array[StageObject] = [obj]
+			CommandManager.execute_command(BaseCommand.TransformCommand.new(targets, old_t, new_t))
 	)
 	spin_y.value_changed.connect(func(v: float):
 		if not _is_updating_ui and is_instance_valid(obj):
-			var old_t := [obj.global_transform]
-			var new_t := [obj.global_transform]
+			var old_t: Array[Transform3D] = [obj.global_transform]
+			var new_t: Array[Transform3D] = [obj.global_transform]
 			new_t[0].origin.y = v
-			CommandManager.execute_command(BaseCommand.TransformCommand.new([obj], old_t, new_t))
+			var targets: Array[StageObject] = [obj]
+			CommandManager.execute_command(BaseCommand.TransformCommand.new(targets, old_t, new_t))
 	)
 	spin_z.value_changed.connect(func(v: float):
 		if not _is_updating_ui and is_instance_valid(obj):
-			var old_t := [obj.global_transform]
-			var new_t := [obj.global_transform]
+			var old_t: Array[Transform3D] = [obj.global_transform]
+			var new_t: Array[Transform3D] = [obj.global_transform]
 			new_t[0].origin.z = v
-			CommandManager.execute_command(BaseCommand.TransformCommand.new([obj], old_t, new_t))
+			var targets: Array[StageObject] = [obj]
+			CommandManager.execute_command(BaseCommand.TransformCommand.new(targets, old_t, new_t))
 	)
 
 	pos_hbox.add_child(spin_x)
@@ -141,10 +223,11 @@ func _show_single_object_inspector(obj: StageObject) -> void:
 	var spin_rot := _create_spinbox(-360, 360, rad_to_deg(obj.rotation.y), 15.0)
 	spin_rot.value_changed.connect(func(v: float):
 		if not _is_updating_ui and is_instance_valid(obj):
-			var old_t := [obj.global_transform]
-			var new_t := [obj.global_transform]
+			var old_t: Array[Transform3D] = [obj.global_transform]
+			var new_t: Array[Transform3D] = [obj.global_transform]
 			new_t[0].basis = Basis(Vector3.UP, deg_to_rad(v))
-			CommandManager.execute_command(BaseCommand.TransformCommand.new([obj], old_t, new_t))
+			var targets: Array[StageObject] = [obj]
+			CommandManager.execute_command(BaseCommand.TransformCommand.new(targets, old_t, new_t))
 	)
 	content_container.add_child(spin_rot)
 
@@ -193,23 +276,19 @@ func _update_single_object_values() -> void:
 
 # --- Multi-Selection Inspector ---
 
-func _show_multi_selection_inspector(selected: Array[StageObject]) -> void:
+func _show_multi_selection_inspector(selected: Array) -> void:
 	_clear_content()
-
-	var title := Label.new()
-	title.text = "Multiple Objects Selected"
-	title.add_theme_font_size_override("font_size", 14)
-	title.add_theme_color_override("font_color", Color(0.4, 0.75, 1.0))
-	content_container.add_child(title)
-
-	var sep := HSeparator.new()
-	content_container.add_child(sep)
+	_create_header("Multiple Objects Selected", Color(0.4, 0.75, 1.0))
 
 	var count := selected.size()
 	var total_w := 0.0
-	for obj in selected:
-		if is_instance_valid(obj):
-			total_w += obj.weight_kg
+	for item in selected:
+		if is_instance_valid(item):
+			if item is StageObject:
+				total_w += item.weight_kg
+			elif item is StageGroup:
+				for o in item.get_all_stage_objects():
+					total_w += o.weight_kg
 
 	_add_stat_row("Selected Count:", "%d items" % count)
 	_add_stat_row("Combined Weight:", "%.1f kg" % total_w)
@@ -257,6 +336,7 @@ func _create_spinbox(min_val: float, max_val: float, initial: float, step: float
 	sb.max_value = max_val
 	sb.step = step
 	sb.value = initial
+	sb.custom_minimum_size = Vector2(40, 0)
 	sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return sb
 
