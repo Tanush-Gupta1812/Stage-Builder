@@ -12,12 +12,15 @@ signal request_show_shortcuts
 signal request_show_about
 signal request_toggle_catalog
 signal request_toggle_properties
+signal request_toggle_checks
 signal request_show_performance_settings
 
 var file_menu: PopupMenu
 var edit_menu: PopupMenu
 var view_menu: PopupMenu
 var perf_menu: PopupMenu
+var ui_scale_menu: PopupMenu
+var camera_menu: PopupMenu
 var ground_menu: PopupMenu
 var help_menu: PopupMenu
 
@@ -47,6 +50,14 @@ func _ready() -> void:
 
 	PerformanceSettings.settings_changed.connect(_update_perf_menu_checks)
 	_update_perf_menu_checks()
+
+	if UIScale:
+		UIScale.scale_changed.connect(func(_s): _update_ui_scale_menu_checks())
+	_update_ui_scale_menu_checks()
+
+	RiggingManager.overlay_toggled.connect(func(enabled: bool):
+		set_overlay_checked(enabled)
+	)
 
 func _create_menus() -> void:
 	var mod_key := PlatformUtils.get_modifier_name()
@@ -106,7 +117,39 @@ func _create_menus() -> void:
 	view_menu.set_item_checked(view_menu.get_item_count() - 1, true)
 	view_menu.add_check_item("Properties Inspector (" + mod_key + "+])", 309)
 	view_menu.set_item_checked(view_menu.get_item_count() - 1, true)
+	view_menu.add_check_item("Structural Checks (" + mod_key + "+3)", 314)
+	view_menu.set_item_checked(view_menu.get_item_count() - 1, false)
 	view_menu.add_separator()
+	view_menu.add_check_item("Rigging 3D Overlay (O)", 310)
+	view_menu.set_item_checked(view_menu.get_item_count() - 1, RiggingManager.overlay_visible)
+	view_menu.add_separator()
+
+	# UI Scale Submenu
+	ui_scale_menu = PopupMenu.new()
+	ui_scale_menu.name = "UIScaleMenu"
+	ui_scale_menu.add_radio_check_item("Auto (" + mod_key + "+0)", 320)
+	ui_scale_menu.add_separator()
+	ui_scale_menu.add_radio_check_item("100%", 321)
+	ui_scale_menu.add_radio_check_item("125%", 322)
+	ui_scale_menu.add_radio_check_item("150%", 323)
+	ui_scale_menu.add_radio_check_item("175%", 324)
+	ui_scale_menu.add_radio_check_item("200%", 325)
+	ui_scale_menu.add_radio_check_item("250%", 326)
+	ui_scale_menu.add_radio_check_item("300%", 327)
+	ui_scale_menu.add_separator()
+	ui_scale_menu.add_item("Zoom In (" + mod_key + "+Plus)", 328)
+	ui_scale_menu.add_item("Zoom Out (" + mod_key + "+Minus)", 329)
+	ui_scale_menu.id_pressed.connect(_on_ui_scale_menu_pressed)
+	view_menu.add_child(ui_scale_menu)
+	view_menu.add_submenu_node_item("UI Scale", ui_scale_menu, 319)
+
+	# Camera Submenu
+	camera_menu = PopupMenu.new()
+	camera_menu.name = "CameraMenu"
+	camera_menu.add_check_item("Invert middle-drag movement", 350)
+	camera_menu.id_pressed.connect(_on_camera_menu_pressed)
+	view_menu.add_child(camera_menu)
+	view_menu.add_submenu_node_item("Camera", camera_menu, 318)
 
 	# Performance Submenu
 	perf_menu = PopupMenu.new()
@@ -126,7 +169,17 @@ func _create_menus() -> void:
 	view_menu.add_child(perf_menu)
 	view_menu.add_submenu_node_item("Performance", perf_menu, 310)
 
+	# Developer Submenu
+	var dev_menu := PopupMenu.new()
+	dev_menu.name = "DevMenu"
+	dev_menu.add_item("Regenerate All Thumbnails", 330)
+	dev_menu.id_pressed.connect(_on_dev_menu_pressed)
+	view_menu.add_child(dev_menu)
+	view_menu.add_submenu_node_item("Developer", dev_menu, 316)
+
 	view_menu.id_pressed.connect(_on_view_menu_pressed)
+	view_menu.about_to_popup.connect(_update_camera_menu_checks)
+
 	add_child(view_menu)
 
 	# --- Ground Menu ---
@@ -199,6 +252,20 @@ func _on_view_menu_pressed(id: int) -> void:
 		307: if camera: camera.frame_selection()
 		308: request_toggle_catalog.emit()
 		309: request_toggle_properties.emit()
+		310: RiggingManager.toggle_overlay()
+		314: request_toggle_checks.emit()
+
+func set_checks_checked(is_checked: bool) -> void:
+	if view_menu:
+		var idx := view_menu.get_item_index(314)
+		if idx >= 0:
+			view_menu.set_item_checked(idx, is_checked)
+
+func set_overlay_checked(is_checked: bool) -> void:
+	if view_menu:
+		var idx := view_menu.get_item_index(310)
+		if idx >= 0:
+			view_menu.set_item_checked(idx, is_checked)
 
 func set_catalog_checked(is_checked: bool) -> void:
 	if view_menu:
@@ -253,5 +320,66 @@ func _on_perf_menu_pressed(id: int) -> void:
 			PerformanceSettings.set_limit_fps_unfocused(not PerformanceSettings.limit_fps_unfocused)
 		315:
 			request_show_performance_settings.emit()
+
+func _update_ui_scale_menu_checks() -> void:
+	if not is_instance_valid(ui_scale_menu):
+		return
+	var is_auto: bool = UIScale.is_auto_scale()
+	var cur_scale: float = UIScale.get_current_scale()
+
+	ui_scale_menu.set_item_checked(0, is_auto)
+	# Indices for percentages:
+	# item 0 is Auto, item 1 is separator, item 2 is 100%, 3 is 125%, 4 is 150%, 5 is 175%, 6 is 200%, 7 is 250%, 8 is 300%
+	var pct_map := {
+		2: 1.0,
+		3: 1.25,
+		4: 1.5,
+		5: 1.75,
+		6: 2.0,
+		7: 2.5,
+		8: 3.0
+	}
+	for idx in pct_map:
+		var target_scale: float = pct_map[idx]
+		ui_scale_menu.set_item_checked(idx, not is_auto and is_equal_approx(cur_scale, target_scale))
+
+func _on_ui_scale_menu_pressed(id: int) -> void:
+	match id:
+		320: UIScale.reset_to_auto()
+		321: UIScale.set_manual_scale(1.0)
+		322: UIScale.set_manual_scale(1.25)
+		323: UIScale.set_manual_scale(1.5)
+		324: UIScale.set_manual_scale(1.75)
+		325: UIScale.set_manual_scale(2.0)
+		326: UIScale.set_manual_scale(2.5)
+		327: UIScale.set_manual_scale(3.0)
+		328: UIScale.zoom_in()
+		329: UIScale.zoom_out()
+
+func _on_dev_menu_pressed(id: int) -> void:
+	match id:
+		330:
+			if is_instance_valid(ThumbnailRenderer.instance):
+				ThumbnailRenderer.instance.regenerate_all()
+				AppState.status_message.emit("Regenerating all asset thumbnails...")
+
+func _update_camera_menu_checks() -> void:
+	if not is_instance_valid(camera_menu):
+		return
+	var camera: StageCamera = get_tree().root.find_child("StageCamera", true, false)
+	if camera:
+		camera_menu.set_item_checked(0, camera.invert_middle_drag)
+
+func _on_camera_menu_pressed(id: int) -> void:
+	match id:
+		350:
+			var camera: StageCamera = get_tree().root.find_child("StageCamera", true, false)
+			if camera:
+				var new_val := not camera.invert_middle_drag
+				camera.set_invert_middle_drag(new_val)
+				camera_menu.set_item_checked(0, new_val)
+
+
+
 
 

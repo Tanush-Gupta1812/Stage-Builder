@@ -2,6 +2,7 @@ class_name ProjectSerializer
 extends RefCounted
 
 const StageGroup = preload("res://scripts/core/stage_group.gd")
+const TransformGuard = preload("res://scripts/core/transform_guard.gd")
 
 ## Serializes and deserializes Stage-Builder projects to/from .stagebuilder JSON files.
 ## Supports autosave, recent files history, and full stage state persistence.
@@ -32,6 +33,10 @@ static func save_project(path: String, camera_node: Camera3D = null) -> bool:
 
 	var objs: Array = []
 	for child in AppState.stage_container.get_children():
+		if child is Node3D:
+			if not TransformGuard.is_finite_transform(child.global_transform):
+				TransformGuard.warn_invalid_transform("ProjectSerializer.save_project", "Repaired non-finite transform for object: " + child.name)
+				child.global_transform = Transform3D(Basis.IDENTITY, Vector3.ZERO)
 		if child is StageObject:
 			objs.append(child.serialize())
 		elif child is StageGroup:
@@ -135,7 +140,8 @@ static func _deserialize_item(item_dict: Dictionary, parent_node: Node, is_legac
 				Vector3(basis_arr[1][0], basis_arr[1][1], basis_arr[1][2]),
 				Vector3(basis_arr[2][0], basis_arr[2][1], basis_arr[2][2])
 			)
-			grp.global_transform = Transform3D(basis, Vector3(orig_arr[0], orig_arr[1], orig_arr[2]))
+			var cand_grp_t := Transform3D(basis, Vector3(orig_arr[0], orig_arr[1], orig_arr[2]))
+			grp.global_transform = TransformGuard.sanitize(cand_grp_t, Transform3D.IDENTITY, "ProjectSerializer.load_project(group)")
 
 		var children_data: Array = item_dict.get("children", [])
 		for ch_dict in children_data:
@@ -158,6 +164,8 @@ static func _deserialize_item(item_dict: Dictionary, parent_node: Node, is_legac
 			stage_obj.apply_variant(str(item_dict["variant"]))
 
 		var t_val = item_dict.get("transform", null)
+		var cand_obj_t := Transform3D.IDENTITY
+		var has_transform := false
 		if t_val is Dictionary:
 			var basis_arr: Array = t_val.get("basis", [[1,0,0],[0,1,0],[0,0,1]])
 			var orig_arr: Array = t_val.get("origin", [0,0,0])
@@ -171,7 +179,8 @@ static func _deserialize_item(item_dict: Dictionary, parent_node: Node, is_legac
 				origin -= basis * Vector3(0, stage_obj.pivot_offset_y, 0)
 				if origin.y < 0.0 and origin.y >= -stage_obj.pivot_offset_y - 0.05:
 					origin.y = 0.0
-			stage_obj.global_transform = Transform3D(basis, origin)
+			cand_obj_t = Transform3D(basis, origin)
+			has_transform = true
 		elif t_val is Array and t_val.size() == 12:
 			var basis := Basis(
 				Vector3(t_val[0], t_val[1], t_val[2]),
@@ -183,7 +192,14 @@ static func _deserialize_item(item_dict: Dictionary, parent_node: Node, is_legac
 				origin -= basis * Vector3(0, stage_obj.pivot_offset_y, 0)
 				if origin.y < 0.0 and origin.y >= -stage_obj.pivot_offset_y - 0.05:
 					origin.y = 0.0
-			stage_obj.global_transform = Transform3D(basis, origin)
+			cand_obj_t = Transform3D(basis, origin)
+			has_transform = true
+
+		if has_transform:
+			stage_obj.global_transform = TransformGuard.sanitize(cand_obj_t, Transform3D.IDENTITY, "ProjectSerializer.load_project(object)")
+
+		if item_dict.has("rigging_overrides") and item_dict["rigging_overrides"] is Dictionary:
+			stage_obj.apply_rigging_overrides(item_dict["rigging_overrides"])
 
 		parent_node.add_child(stage_obj)
 		return stage_obj

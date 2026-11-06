@@ -16,6 +16,8 @@ signal point_snap_toggled(is_enabled: bool)
 signal ground_changed(ground_type: String)
 signal status_message(text: String)
 signal request_screenshot
+signal transform_space_changed(is_local: bool)
+signal show_all_rotation_axes_changed(show_all: bool)
 
 enum ToolMode {
 	SELECT,
@@ -25,11 +27,23 @@ enum ToolMode {
 	SCALE
 }
 
-var current_tool: ToolMode = ToolMode.SELECT:
+var current_tool: ToolMode = ToolMode.MOVE:
 	set(val):
 		if current_tool != val:
 			current_tool = val
 			tool_changed.emit(get_tool_name(current_tool))
+
+var is_local_transform_space: bool = false:
+	set(val):
+		if is_local_transform_space != val:
+			is_local_transform_space = val
+			transform_space_changed.emit(val)
+
+var show_all_rotation_axes: bool = false:
+	set(val):
+		if show_all_rotation_axes != val:
+			show_all_rotation_axes = val
+			show_all_rotation_axes_changed.emit(val)
 
 var pending_placement_asset_id: String = ""
 
@@ -57,6 +71,23 @@ var snap_to_points: bool = true:
 			point_snap_toggled.emit(snap_to_points)
 
 var snap_threshold: float = 0.25 # in meters (standard snap radius)
+
+# Rotation Settings
+signal rotation_step_changed(new_step: float)
+signal auto_rest_toggled(enabled: bool)
+
+var rotation_step: float = 90.0: # 5.0, 15.0, 45.0, 90.0
+	set(val):
+		if not is_equal_approx(rotation_step, val):
+			rotation_step = val
+			rotation_step_changed.emit(rotation_step)
+
+var auto_rest_on_rotate: bool = true: # default ON: rests lowest point on surface after rotate
+	set(val):
+		if auto_rest_on_rotate != val:
+			auto_rest_on_rotate = val
+			auto_rest_toggled.emit(auto_rest_on_rotate)
+
 
 # Ground environment
 var current_ground: String = "concrete":
@@ -127,6 +158,9 @@ func toggle_selection(obj: Node3D) -> void:
 func clear_selection() -> void:
 	set_selection([])
 
+func is_selected(obj: Node3D) -> bool:
+	return selected_objects.has(obj)
+
 func select_all() -> void:
 	if not stage_container:
 		return
@@ -171,5 +205,5 @@ func start_placement(catalog_id: String) -> void:
 
 func cancel_placement() -> void:
 	pending_placement_asset_id = ""
-	current_tool = ToolMode.SELECT
+	current_tool = ToolMode.MOVE
 	status_message.emit("Ready")

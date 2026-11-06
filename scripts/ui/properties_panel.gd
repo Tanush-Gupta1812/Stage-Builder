@@ -2,6 +2,7 @@ class_name PropertiesPanel
 extends PanelContainer
 
 const StageGroup = preload("res://scripts/core/stage_group.gd")
+const TransformGuard = preload("res://scripts/core/transform_guard.gd")
 
 signal collapse_requested
 
@@ -91,7 +92,6 @@ func _create_header(title_text: String, title_color: Color = Color(0.9, 0.95, 1.
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title.add_theme_font_size_override("font_size", 16)
 	title.add_theme_color_override("font_color", title_color)
 	hbox.add_child(title)
 
@@ -99,13 +99,21 @@ func _create_header(title_text: String, title_color: Color = Color(0.9, 0.95, 1.
 	collapse_btn.text = "▶"
 	collapse_btn.tooltip_text = "Collapse Panel (Ctrl+] / Cmd+])"
 	collapse_btn.flat = true
-	collapse_btn.add_theme_font_size_override("font_size", 11)
 	collapse_btn.pressed.connect(func(): collapse_requested.emit())
 	hbox.add_child(collapse_btn)
 
 	content_container.add_child(hbox)
 	var sep := HSeparator.new()
 	content_container.add_child(sep)
+
+func _create_section_header(section_title: String) -> void:
+	var sep := HSeparator.new()
+	content_container.add_child(sep)
+
+	var lbl := Label.new()
+	lbl.text = section_title
+	lbl.add_theme_color_override("font_color", Color(0.38, 0.72, 1.0))
+	content_container.add_child(lbl)
 
 # --- Stage Overview Mode ---
 
@@ -132,7 +140,7 @@ func _show_single_object_inspector(obj: StageObject) -> void:
 	_clear_content()
 	_create_header("Properties: " + obj.asset_name, Color(0.4, 0.75, 1.0))
 
-	# Name field
+	# General Info
 	var lbl_name := Label.new()
 	lbl_name.text = "Asset Name:"
 	content_container.add_child(lbl_name)
@@ -145,16 +153,15 @@ func _show_single_object_inspector(obj: StageObject) -> void:
 	)
 	content_container.add_child(input_name)
 
-	# Category, Dimensions & Weight
 	_add_stat_row("Category:", obj.category)
 	_add_stat_row("Dimensions:", "%.2fx%.2fx%.2f m" % [obj.dimensions.x, obj.dimensions.y, obj.dimensions.z])
 	_add_stat_row("Weight:", "%.1f kg" % obj.weight_kg)
 
-	# Material / Color Variant Picker
+	# Appearance Section
 	if not obj.available_variants.is_empty():
+		_create_section_header("Appearance")
 		var var_lbl := Label.new()
 		var_lbl.text = "Material / Color Variant:"
-		var_lbl.add_theme_font_size_override("font_size", 12)
 		content_container.add_child(var_lbl)
 
 		var var_opt := OptionButton.new()
@@ -173,73 +180,185 @@ func _show_single_object_inspector(obj: StageObject) -> void:
 		)
 		content_container.add_child(var_opt)
 
-	# Base Center Position X, Y, Z
+	# Transform Section
+	_create_section_header("Transform")
+
 	var pos_lbl := Label.new()
-	pos_lbl.text = "Base Center (X, Y, Z meters):"
-	pos_lbl.add_theme_font_size_override("font_size", 12)
+	pos_lbl.text = "Position (meters):"
 	content_container.add_child(pos_lbl)
 
 	var pos_hbox := HBoxContainer.new()
+	pos_hbox.add_theme_constant_override("separation", 6)
+
+	var lx := _create_axis_badge("X", Color(0.95, 0.35, 0.35))
 	var spin_x := _create_spinbox(-100, 100, obj.global_position.x, 0.1)
+	var ly := _create_axis_badge("Y", Color(0.35, 0.85, 0.35))
 	var spin_y := _create_spinbox(-100, 100, obj.global_position.y, 0.1)
+	var lz := _create_axis_badge("Z", Color(0.40, 0.65, 1.00))
 	var spin_z := _create_spinbox(-100, 100, obj.global_position.z, 0.1)
 
 	spin_x.value_changed.connect(func(v: float):
 		if not _is_updating_ui and is_instance_valid(obj):
+			if not is_finite(v) or absf(v) > TransformGuard.MAX_COORD:
+				return
 			var old_t: Array[Transform3D] = [obj.global_transform]
 			var new_t: Array[Transform3D] = [obj.global_transform]
 			new_t[0].origin.x = v
+			new_t[0] = TransformGuard.sanitize(new_t[0], old_t[0], "PropertiesPanel.PositionX")
 			var targets: Array[StageObject] = [obj]
 			CommandManager.execute_command(BaseCommand.TransformCommand.new(targets, old_t, new_t))
 	)
 	spin_y.value_changed.connect(func(v: float):
 		if not _is_updating_ui and is_instance_valid(obj):
+			if not is_finite(v) or absf(v) > TransformGuard.MAX_COORD:
+				return
 			var old_t: Array[Transform3D] = [obj.global_transform]
 			var new_t: Array[Transform3D] = [obj.global_transform]
 			new_t[0].origin.y = v
+			new_t[0] = TransformGuard.sanitize(new_t[0], old_t[0], "PropertiesPanel.PositionY")
 			var targets: Array[StageObject] = [obj]
 			CommandManager.execute_command(BaseCommand.TransformCommand.new(targets, old_t, new_t))
 	)
 	spin_z.value_changed.connect(func(v: float):
 		if not _is_updating_ui and is_instance_valid(obj):
+			if not is_finite(v) or absf(v) > TransformGuard.MAX_COORD:
+				return
 			var old_t: Array[Transform3D] = [obj.global_transform]
 			var new_t: Array[Transform3D] = [obj.global_transform]
 			new_t[0].origin.z = v
+			new_t[0] = TransformGuard.sanitize(new_t[0], old_t[0], "PropertiesPanel.PositionZ")
 			var targets: Array[StageObject] = [obj]
 			CommandManager.execute_command(BaseCommand.TransformCommand.new(targets, old_t, new_t))
 	)
 
+	pos_hbox.add_child(lx)
 	pos_hbox.add_child(spin_x)
+	pos_hbox.add_child(ly)
 	pos_hbox.add_child(spin_y)
+	pos_hbox.add_child(lz)
 	pos_hbox.add_child(spin_z)
 	content_container.add_child(pos_hbox)
 
-	# Rotation Y degrees
+	# 3D Rotation (X, Y, Z Degrees)
 	var rot_lbl := Label.new()
-	rot_lbl.text = "Rotation Y (Degrees):"
-	rot_lbl.add_theme_font_size_override("font_size", 12)
+	rot_lbl.text = "Rotation (degrees):"
 	content_container.add_child(rot_lbl)
 
-	var spin_rot := _create_spinbox(-360, 360, rad_to_deg(obj.rotation.y), 15.0)
-	spin_rot.value_changed.connect(func(v: float):
+	var rot_euler := obj.global_basis.get_euler()
+	var rot_hbox := HBoxContainer.new()
+	rot_hbox.add_theme_constant_override("separation", 6)
+
+	var lrx := _create_axis_badge("X", Color(0.95, 0.35, 0.35))
+	var spin_rx := _create_spinbox(-360, 360, rad_to_deg(rot_euler.x), 5.0)
+	var lry := _create_axis_badge("Y", Color(0.35, 0.85, 0.35))
+	var spin_ry := _create_spinbox(-360, 360, rad_to_deg(rot_euler.y), 5.0)
+	var lrz := _create_axis_badge("Z", Color(0.40, 0.65, 1.00))
+	var spin_rz := _create_spinbox(-360, 360, rad_to_deg(rot_euler.z), 5.0)
+
+	var update_rotation = func():
 		if not _is_updating_ui and is_instance_valid(obj):
+			var rad_x := deg_to_rad(spin_rx.value)
+			var rad_y := deg_to_rad(spin_ry.value)
+			var rad_z := deg_to_rad(spin_rz.value)
+			if not (is_finite(rad_x) and is_finite(rad_y) and is_finite(rad_z)):
+				return
 			var old_t: Array[Transform3D] = [obj.global_transform]
 			var new_t: Array[Transform3D] = [obj.global_transform]
-			new_t[0].basis = Basis(Vector3.UP, deg_to_rad(v))
+			var new_basis := Basis.from_euler(Vector3(rad_x, rad_y, rad_z))
+			new_t[0].basis = new_basis
+
+			if AppState.auto_rest_on_rotate:
+				var min_offset: float = StageViewport.get_lowest_point_y_offset(obj, new_basis)
+				if new_t[0].origin.y + min_offset < 0.0:
+					new_t[0].origin.y = -min_offset
+
+			new_t[0] = TransformGuard.sanitize(new_t[0], old_t[0], "PropertiesPanel.Rotation")
+			var targets: Array[StageObject] = [obj]
+			CommandManager.execute_command(BaseCommand.TransformCommand.new(targets, old_t, new_t))
+
+	spin_rx.value_changed.connect(func(_v): update_rotation.call())
+	spin_ry.value_changed.connect(func(_v): update_rotation.call())
+	spin_rz.value_changed.connect(func(_v): update_rotation.call())
+
+	rot_hbox.add_child(lrx)
+	rot_hbox.add_child(spin_rx)
+	rot_hbox.add_child(lry)
+	rot_hbox.add_child(spin_ry)
+	rot_hbox.add_child(lrz)
+	rot_hbox.add_child(spin_rz)
+	content_container.add_child(rot_hbox)
+
+	# Quick Rotation Buttons
+	var rot_btn_grid := GridContainer.new()
+	rot_btn_grid.columns = 3
+	rot_btn_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rot_btn_grid.add_theme_constant_override("h_separation", 4)
+	rot_btn_grid.add_theme_constant_override("v_separation", 4)
+
+	var vp := get_tree().root.find_child("StageViewport", true, false)
+
+	var btn_rot_x := Button.new()
+	btn_rot_x.text = "90° X"
+	btn_rot_x.tooltip_text = "Rotate 90 degrees around X axis"
+	btn_rot_x.pressed.connect(func(): if vp and vp.has_method("rotate_selected_objects"): vp.rotate_selected_objects(Vector3.RIGHT, 90.0))
+	rot_btn_grid.add_child(btn_rot_x)
+
+	var btn_rot_y := Button.new()
+	btn_rot_y.text = "90° Y"
+	btn_rot_y.tooltip_text = "Rotate 90 degrees around Y axis"
+	btn_rot_y.pressed.connect(func(): if vp and vp.has_method("rotate_selected_objects"): vp.rotate_selected_objects(Vector3.UP, 90.0))
+	rot_btn_grid.add_child(btn_rot_y)
+
+	var btn_rot_z := Button.new()
+	btn_rot_z.text = "90° Z"
+	btn_rot_z.tooltip_text = "Rotate 90 degrees around Z axis"
+	btn_rot_z.pressed.connect(func(): if vp and vp.has_method("rotate_selected_objects"): vp.rotate_selected_objects(Vector3.BACK, 90.0))
+	rot_btn_grid.add_child(btn_rot_z)
+
+	var btn_reset_rot := Button.new()
+	btn_reset_rot.text = "Reset Rot"
+	btn_reset_rot.tooltip_text = "Reset object rotation to default alignment"
+	btn_reset_rot.pressed.connect(func():
+		if is_instance_valid(obj):
+			var old_t: Array[Transform3D] = [obj.global_transform]
+			var new_t: Array[Transform3D] = [obj.global_transform]
+			new_t[0].basis = Basis.IDENTITY
 			var targets: Array[StageObject] = [obj]
 			CommandManager.execute_command(BaseCommand.TransformCommand.new(targets, old_t, new_t))
 	)
-	content_container.add_child(spin_rot)
+	rot_btn_grid.add_child(btn_reset_rot)
 
-	# Notes
-	var notes_lbl := Label.new()
-	notes_lbl.text = "Equipment Notes:"
-	notes_lbl.add_theme_font_size_override("font_size", 12)
-	content_container.add_child(notes_lbl)
+	var btn_stand := Button.new()
+	btn_stand.text = "Upright"
+	btn_stand.tooltip_text = "Stand object upright (keep yaw, reset pitch/roll)"
+	btn_stand.pressed.connect(func():
+		if is_instance_valid(obj):
+			var old_t: Array[Transform3D] = [obj.global_transform]
+			var new_t: Array[Transform3D] = [obj.global_transform]
+			var cur_yaw := obj.global_basis.get_euler().y
+			new_t[0].basis = Basis(Vector3.UP, cur_yaw)
+			var targets: Array[StageObject] = [obj]
+			CommandManager.execute_command(BaseCommand.TransformCommand.new(targets, old_t, new_t))
+	)
+	rot_btn_grid.add_child(btn_stand)
 
+	var btn_drop := Button.new()
+	btn_drop.text = "Drop Surface"
+	btn_drop.tooltip_text = "Drop lowest bounding point to resting surface"
+	btn_drop.pressed.connect(func(): if vp and vp.has_method("drop_selected_to_surface"): vp.drop_selected_to_surface())
+	rot_btn_grid.add_child(btn_drop)
+
+	content_container.add_child(rot_btn_grid)
+
+	# Rigging Section
+	_add_rigging_section(obj)
+
+	# Notes Section
+	_create_section_header("Notes")
 	var notes_edit := TextEdit.new()
 	notes_edit.text = obj.custom_notes
-	notes_edit.custom_minimum_size = Vector2(0, 70)
+	notes_edit.placeholder_text = "Add operational or setup notes..."
+	notes_edit.custom_minimum_size = Vector2(0, 60)
 	notes_edit.text_changed.connect(func():
 		if not _is_updating_ui and is_instance_valid(obj):
 			obj.custom_notes = notes_edit.text
@@ -248,24 +367,32 @@ func _show_single_object_inspector(obj: StageObject) -> void:
 	content_container.add_child(notes_edit)
 
 	# Actions
+	_create_section_header("Actions")
+	var act_hbox := HBoxContainer.new()
+	act_hbox.add_theme_constant_override("separation", 6)
+
 	var btn_dup := Button.new()
-	btn_dup.text = "Duplicate Object"
+	btn_dup.text = "Duplicate"
+	btn_dup.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn_dup.pressed.connect(func():
-		var vp := get_tree().root.find_child("StageViewport", true, false)
-		if vp and vp.has_method("_duplicate_selection"):
-			vp._duplicate_selection()
+		var vp_node := get_tree().root.find_child("StageViewport", true, false)
+		if vp_node and vp_node.has_method("_duplicate_selection"):
+			vp_node._duplicate_selection()
 	)
-	content_container.add_child(btn_dup)
+	act_hbox.add_child(btn_dup)
 
 	var btn_del := Button.new()
-	btn_del.text = "Delete Object"
+	btn_del.text = "Delete"
+	btn_del.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn_del.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 	btn_del.pressed.connect(func():
-		var vp := get_tree().root.find_child("StageViewport", true, false)
-		if vp and vp.has_method("_delete_selection"):
-			vp._delete_selection()
+		var vp_node := get_tree().root.find_child("StageViewport", true, false)
+		if vp_node and vp_node.has_method("_delete_selection"):
+			vp_node._delete_selection()
 	)
-	content_container.add_child(btn_del)
+	act_hbox.add_child(btn_del)
+	content_container.add_child(act_hbox)
+
 
 func _update_single_object_values() -> void:
 	# Refreshes the display if transforms changed via gizmo
@@ -320,15 +447,21 @@ func _add_stat_row(label_text: String, value_text: String) -> void:
 	lbl.text = label_text
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl.add_theme_color_override("font_color", Color(0.65, 0.68, 0.72))
-	lbl.add_theme_font_size_override("font_size", 12)
 	hbox.add_child(lbl)
 
 	var val := Label.new()
 	val.text = value_text
 	val.add_theme_color_override("font_color", Color(0.9, 0.92, 0.95))
-	val.add_theme_font_size_override("font_size", 12)
 	hbox.add_child(val)
 	content_container.add_child(hbox)
+
+func _create_axis_badge(axis_name: String, col: Color) -> Label:
+	var badge := Label.new()
+	badge.text = axis_name
+	badge.add_theme_color_override("font_color", col)
+	badge.custom_minimum_size = Vector2(12, 0)
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return badge
 
 func _create_spinbox(min_val: float, max_val: float, initial: float, step: float) -> SpinBox:
 	var sb := SpinBox.new()
@@ -336,7 +469,102 @@ func _create_spinbox(min_val: float, max_val: float, initial: float, step: float
 	sb.max_value = max_val
 	sb.step = step
 	sb.value = initial
-	sb.custom_minimum_size = Vector2(40, 0)
+	sb.custom_minimum_size = Vector2(54, 28)
 	sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return sb
+
+func _add_rigging_section(obj: StageObject) -> void:
+	_create_section_header("Rigging & Structural Loads")
+
+	var raw: Dictionary = obj.raw_catalog_data
+	var cat: String = obj.category
+
+	# Mass with editable override
+	var mass_hbox := HBoxContainer.new()
+	mass_hbox.add_theme_constant_override("separation", 6)
+	var mass_lbl := Label.new()
+	mass_lbl.text = "Mass (%s):" % RiggingManager.active_unit
+	mass_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mass_hbox.add_child(mass_lbl)
+	var mass_spin := _create_spinbox(0.1, 50000.0, obj.weight_kg, 1.0)
+	mass_spin.value_changed.connect(func(v: float):
+		if not _is_updating_ui and is_instance_valid(obj):
+			obj.set_rigging_override("weight_kg", v)
+	)
+	mass_hbox.add_child(mass_spin)
+	content_container.add_child(mass_hbox)
+
+	# CoG
+	var cog: Vector3 = Vector3(0, obj.dimensions.y * 0.5, 0)
+	if raw.has("cog_offset") and raw["cog_offset"] is Array and raw["cog_offset"].size() == 3:
+		cog = Vector3(raw["cog_offset"][0], raw["cog_offset"][1], raw["cog_offset"][2])
+	_add_stat_row("Center of Gravity:", "(%.2f, %.2f, %.2f)m" % [cog.x, cog.y, cog.z])
+
+	# Truss Rating
+	if cat == "Truss":
+		var prof: String = raw.get("truss_profile", "box_f34")
+		_add_stat_row("Truss Profile:", "F34 Box" if prof == "box_f34" else "F33 Triangle")
+		_add_stat_row("Load Rating:", "Standard Span Table (Placeholder)")
+
+	# Hoist / Rigging
+	if raw.has("swl_kg") or cat == "Rigging":
+		var cur_swl := float(obj.get_rigging_value("swl_kg", raw.get("swl_kg", 1000.0)))
+		var swl_hbox := HBoxContainer.new()
+		swl_hbox.add_theme_constant_override("separation", 6)
+		var swl_lbl := Label.new()
+		swl_lbl.text = "Rated SWL (kg):"
+		swl_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		swl_hbox.add_child(swl_lbl)
+		var swl_spin := _create_spinbox(10.0, 100000.0, cur_swl, 10.0)
+		swl_spin.value_changed.connect(func(v: float):
+			if not _is_updating_ui and is_instance_valid(obj):
+				obj.set_rigging_override("swl_kg", v)
+		)
+		swl_hbox.add_child(swl_spin)
+		content_container.add_child(swl_hbox)
+
+	if raw.has("motor_capacity_kg"):
+		var cur_mc := float(obj.get_rigging_value("motor_capacity_kg", raw.get("motor_capacity_kg", 1000.0)))
+		var mc_hbox := HBoxContainer.new()
+		mc_hbox.add_theme_constant_override("separation", 6)
+		var mc_lbl := Label.new()
+		mc_lbl.text = "Motor Capacity (kg):"
+		mc_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		mc_hbox.add_child(mc_lbl)
+		var mc_spin := _create_spinbox(10.0, 50000.0, cur_mc, 10.0)
+		mc_spin.value_changed.connect(func(v: float):
+			if not _is_updating_ui and is_instance_valid(obj):
+				obj.set_rigging_override("motor_capacity_kg", v)
+		)
+		mc_hbox.add_child(mc_spin)
+		content_container.add_child(mc_hbox)
+
+	# Support
+	if raw.get("is_support", false):
+		var cur_mvl := float(obj.get_rigging_value("max_vertical_load_kg", raw.get("max_vertical_load_kg", 4000.0)))
+		var sup_hbox := HBoxContainer.new()
+		sup_hbox.add_theme_constant_override("separation", 6)
+		var sup_lbl := Label.new()
+		sup_lbl.text = "Max Vert Load (kg):"
+		sup_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sup_hbox.add_child(sup_lbl)
+		var sup_spin := _create_spinbox(50.0, 100000.0, cur_mvl, 50.0)
+		sup_spin.value_changed.connect(func(v: float):
+			if not _is_updating_ui and is_instance_valid(obj):
+				obj.set_rigging_override("max_vertical_load_kg", v)
+		)
+		sup_hbox.add_child(sup_spin)
+		content_container.add_child(sup_hbox)
+
+	# Rigging Points
+	if raw.has("rigging_points") and raw["rigging_points"] is Array:
+		var rps: Array = raw["rigging_points"]
+		_add_stat_row("Rigging Points:", "%d point(s)" % rps.size())
+
+	# Disclaimer note
+	var disc_lbl := Label.new()
+	disc_lbl.text = "All calculations are PLANNING AIDS ONLY, not engineering sign-off or structural certification. Verify all rigging, loads and ballasting with a certified structural engineer or licensed rigger before production."
+	disc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	disc_lbl.add_theme_color_override("font_color", Color(0.65, 0.68, 0.72))
+	content_container.add_child(disc_lbl)
 

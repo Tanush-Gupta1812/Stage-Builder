@@ -21,6 +21,7 @@ signal variant_changed(variant_id: String)
 var available_variants: Array = []
 var snap_points: Array = []
 var raw_catalog_data: Dictionary = {}
+var rigging_overrides: Dictionary = {}
 var is_selected: bool = false:
 	set(val):
 		if is_selected != val:
@@ -189,8 +190,20 @@ func get_global_snap_points() -> Array:
 		})
 	return result
 
+func set_rigging_override(key: String, val: Variant) -> void:
+	rigging_overrides[key] = val
+	if key == "weight_kg":
+		weight_kg = float(val)
+	AppState.is_modified = true
+	RiggingManager.request_solve()
+
+func apply_rigging_overrides(overrides: Dictionary) -> void:
+	rigging_overrides = overrides.duplicate(true)
+	if rigging_overrides.has("weight_kg"):
+		weight_kg = float(rigging_overrides["weight_kg"])
+
 func serialize() -> Dictionary:
-	return {
+	var data: Dictionary = {
 		"catalog_id": catalog_id,
 		"instance_id": instance_id,
 		"name": asset_name,
@@ -210,3 +223,6 @@ func serialize() -> Dictionary:
 			"origin": [global_transform.origin.x, global_transform.origin.y, global_transform.origin.z]
 		}
 	}
+	if not rigging_overrides.is_empty():
+		data["rigging_overrides"] = rigging_overrides.duplicate(true)
+	return data

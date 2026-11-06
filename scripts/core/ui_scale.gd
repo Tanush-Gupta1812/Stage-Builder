@@ -12,6 +12,8 @@ const MIN_LAYOUT_WIDTH: float = 1100.0
 const MIN_LAYOUT_HEIGHT: float = 680.0
 const MIN_SCALE: float = 0.75
 const MAX_SCALE: float = 3.0
+const SETTINGS_FILE = "user://settings.json"
+const SCALE_STEPS: Array[float] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
 
 var current_scale: float = 1.0
 var requested_scale: float = 1.0
@@ -20,12 +22,101 @@ var _last_screen_id: int = -1
 var _last_phys_size: Vector2i = Vector2i.ZERO
 
 func _ready() -> void:
+	load_settings()
 	var win := get_window()
 	if win:
 		win.dpi_changed.connect(_on_dpi_changed)
 		win.size_changed.connect(_on_size_changed)
 
 	recompute_scale()
+
+func zoom_in() -> void:
+	var next_step := current_scale
+	for step in SCALE_STEPS:
+		if step > current_scale + 0.05:
+			next_step = step
+			break
+	if next_step <= current_scale and current_scale < MAX_SCALE:
+		next_step = minf(current_scale + 0.25, MAX_SCALE)
+
+	manual_override = true
+	requested_scale = next_step
+	recompute_scale()
+	save_settings()
+	_notify_scale_toast()
+
+func zoom_out() -> void:
+	var prev_step := current_scale
+	for i in range(SCALE_STEPS.size() - 1, -1, -1):
+		var step := SCALE_STEPS[i]
+		if step < current_scale - 0.05:
+			prev_step = step
+			break
+	if prev_step >= current_scale and current_scale > MIN_SCALE:
+		prev_step = maxf(current_scale - 0.25, MIN_SCALE)
+
+	manual_override = true
+	requested_scale = prev_step
+	recompute_scale()
+	save_settings()
+	_notify_scale_toast()
+
+func reset_to_auto() -> void:
+	clear_override()
+	save_settings()
+	_notify_scale_toast(true)
+
+func set_manual_scale(target_scale: float) -> void:
+	set_scale(target_scale)
+	save_settings()
+	_notify_scale_toast()
+
+func _notify_scale_toast(is_auto: bool = false) -> void:
+	var pct := int(roundf(current_scale * 100.0))
+	if is_auto:
+		AppState.status_message.emit("UI Scale: Auto (%d%%)" % pct)
+	else:
+		AppState.status_message.emit("UI Scale: %d%%" % pct)
+
+func load_settings(path: String = SETTINGS_FILE) -> bool:
+	if not FileAccess.file_exists(path):
+		return false
+	var file := FileAccess.open(path, FileAccess.READ)
+	if not file:
+		return false
+	var content := file.get_as_text()
+	var json := JSON.new()
+	if json.parse(content) != OK or not (json.data is Dictionary):
+		return false
+	var data: Dictionary = json.data
+	var ui_data: Dictionary = data.get("ui_scale", {})
+	if ui_data.is_empty():
+		return false
+
+	manual_override = ui_data.get("manual_override", false)
+	if manual_override:
+		requested_scale = clampf(float(ui_data.get("scale", 1.0)), MIN_SCALE, MAX_SCALE)
+	return true
+
+func save_settings(path: String = SETTINGS_FILE) -> bool:
+	var existing_data := {}
+	if FileAccess.file_exists(path):
+		var read_file := FileAccess.open(path, FileAccess.READ)
+		if read_file:
+			var json := JSON.new()
+			if json.parse(read_file.get_as_text()) == OK and json.data is Dictionary:
+				existing_data = json.data
+
+	existing_data["ui_scale"] = {
+		"manual_override": manual_override,
+		"scale": current_scale
+	}
+
+	var write_file := FileAccess.open(path, FileAccess.WRITE)
+	if not write_file:
+		return false
+	write_file.store_string(JSON.stringify(existing_data, "  "))
+	return true
 
 func _on_dpi_changed() -> void:
 	recompute_scale()
@@ -43,6 +134,13 @@ func set_scale(target_scale: float) -> void:
 func clear_override() -> void:
 	manual_override = false
 	recompute_scale()
+
+func is_auto_scale() -> bool:
+	return not manual_override
+
+func get_current_scale() -> float:
+	return current_scale
+
 
 func recompute_scale() -> void:
 	var win := get_window()

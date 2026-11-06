@@ -208,7 +208,24 @@ Grouping multiple equipment items (`Ctrl/Cmd + G`) wraps them into a dedicated `
 
 ---
 
-### 3.7 Snapping & Placement Validation System
+### 3.7 Separated Transform Tools & Direct Dragging System
+To eliminate collision overlap between translation arrows and rotation rings:
+1. **Isolated Tool Modes**:
+   - `ToolMode.MOVE` (Key `1`): Displays exclusively 3 axis arrows (X, Y, Z) and a ground-plane (XZ) square handle.
+   - `ToolMode.ROTATE` (Key `2`): Displays rotation rings. By default, only the vertical yaw ring (Y-axis) is active; pressing `X` or toggling the Viewport Toolbar reveals Pitch (X) and Roll (Z) rings.
+   - `ToolMode.SCALE` (Key `3`): Displays box handles for scale manipulation.
+   - Collision shapes for inactive modes are dynamically detached or disabled, guaranteeing zero handle overlap.
+2. **Direct Object Dragging**:
+   - In Move mode, clicking and dragging any selected object's body directly moves it across the ground plane or underlying geometry with snap rules active. Rotation is preserved 100% unchanged.
+   - Holding `Shift` constrains movement to vertical elevation (Y-axis only) without deselecting.
+   - Holding `Alt` bypasses snapping for smooth freehand positioning.
+   - Pressing `Esc` or `RMB` cancels the drag and restores initial transforms.
+3. **Constant On-Screen Gizmo Size**:
+   - The gizmo projects camera distance dynamically: `scale = base_dist * tan(fov / 2) * (110 / viewport_height) * UIScale.current_scale`. It remains exactly ~110px on screen regardless of camera zoom or perspective adjustments.
+
+---
+
+### 3.8 Snapping & Placement Validation System
 Stage-Builder provides high-precision snapping via `scripts/viewport/snap_system.gd`:
 
 1. **Snap-Point-to-Snap-Point (Priority 1)**:
@@ -233,9 +250,12 @@ Stage-Builder centralizes global shortcut processing at `MainUI._input(event)`:
 - **Shortcut Unification**: All commands (`Ctrl/Cmd+D` duplicate, `Del/Backspace` delete, `Ctrl/Cmd+G` group, `Ctrl/Cmd+Shift+G` ungroup, `Ctrl/Cmd+Z` undo, `Ctrl/Cmd+Y` redo, `G` grid toggle, `S` snap toggle) execute centrally from a single source of truth without double-invocations.
 - **Camera Orbit Alt/LMB Coexistence**: In `StageViewport`, if `Alt` is held on an empty canvas click, box-select is suppressed, allowing `StageCamera` to smoothly handle `Alt + LMB` orbit.
 `StageCamera` implements standard CAD / 3D DCC controls:
-- **Orbit**: Middle Mouse Button OR `Alt + Left Mouse Button`
-- **Pan**: `Shift + Middle Mouse Button` OR macOS two-finger scroll gesture (`InputEventPanGesture`)
-- **Zoom**: Mouse scroll wheel OR macOS pinch-to-zoom (`InputEventMagnifyGesture`)
+- **Walk Move (Ground-Parallel)**: Middle Mouse Drag (no modifier): level ground strafe (A/D) and forward/back (W/S) with camera Y strictly invariant (< 1 mm). "Grab the ground" feel by default; `View > Camera > Invert middle-drag movement` toggles to fly style (drag up = forward).
+- **Elevate**: `Alt + Middle Mouse Button` drag up/down raises and lowers camera height Y (pure vertical elevation).
+- **Orbit**: `Shift + Middle Mouse Button` (drag) OR `Alt + Left Mouse Button` OR macOS Option + two-finger drag (distance strictly preserved).
+- **Pan**: `Alt + Shift + Left Mouse Button` OR macOS two-finger scroll gesture (`InputEventPanGesture`).
+- **Smooth Zoom**: `Ctrl/Cmd + Middle Mouse Button` (drag).
+- **Zoom**: Mouse scroll wheel OR macOS pinch-to-zoom (`InputEventMagnifyGesture`).
 - **Fly Mode**: Hold `Right Mouse Button` + `WASD` (forward/back/strafe), `Q`/`E` (down/up), `Shift` (speed boost).
 - **Quick Views**: Top (Numpad 7), Front (Numpad 1), Side (Numpad 3), Perspective (Numpad 0).
 - **Framing**: `F` centers and frames the camera on the active selection.
@@ -322,6 +342,85 @@ Frame rate regulation and display synchronization are managed centrally by `Perf
 5. **Platform Constraints**:
    - **Windows**: Full control over hardware swapchain tearing; unlimited mode yields unbound GPU output.
    - **macOS**: System-level WindowServer / Metal compositor locks presentation to active screen refresh (60Hz / 120Hz ProMotion). Unlimited mode is constrained to the physical display refresh rate.
+
+---
+
+## 3.4 Full 3D Rotation, Gizmo & Thumbnail Pipeline
+
+### 1. 3D Rotation Architecture
+* **Keys**: `R`/`Shift+R` (Yaw ±Step around Y), `T`/`Shift+T` (Pitch ±Step around X), `Y`/`Shift+Y` (Roll ±Step around Z).
+* **Step Resolution**: 5°, 15°, 45°, 90° (default 90°), toggleable from the bottom status bar (`RotStepButton`). Holding `Ctrl` (or `Cmd` on macOS) activates fine rotation in 5° increments.
+* **Surface Resting & Tilt Correction**:
+  - When an object rotates around any axis, its transformed corners are checked against the hit surface.
+  - `StageViewport.get_lowest_point_y_offset(obj, basis)` computes the distance from the object origin to its lowest geometric contact point.
+  - `AppState.auto_rest_on_rotate` (default ON) automatically offsets the object origin upward by `-min_offset`, preventing any part of the asset from sinking below ground or stacking surfaces.
+* **3-Ring Interactive Gizmo**:
+  - Red ring (`ROT_X` in YZ plane for Pitch), Green ring (`ROT_Y` in XZ plane for Yaw), Blue ring (`ROT_Z` in XY plane for Roll).
+  - Live angle readout in the status bar while dragging.
+  - Executes a single undoable `TransformCommand` upon release.
+* **Inspector Controls**:
+  - Pitch X, Yaw Y, Roll Z SpinBoxes in degrees with two-way sync.
+  - Quick Action buttons: `Rotate 90° X`, `Rotate 90° Y`, `Rotate 90° Z`, `Reset Rotation`, `Stand Upright`, and `Drop to Surface`.
+
+### 2. 3D Offscreen Thumbnail Pipeline
+* **Persistent Autoload Node**: Configured as engine Autoload `ThumbnailRenderer` in `project.godot`, ensuring the renderer and in-memory cache are alive and ready before child UI panels (`AssetPanel`, `AppStatusBar`) initialize.
+* **Offscreen SubViewport**: Dedicated `ThumbnailSubViewport` with `own_world_3d = true`, `transparent_bg = true`, rendered at 256x256 (scaled up x2 on hiDPI / Retina displays). Key directional light (`rotation_degrees = (-45, 40, 0)`, energy 1.15), fill light (`rotation_degrees = (25, -140, 0)`, energy 0.55), and `WorldEnvironment` ambient lighting (`Color(0.48, 0.50, 0.54)`).
+* **Precise Isometric Framing**: Instantiates the model as a child of the viewport, computes the exact world-space bounding box across all `MeshInstance3D` and `MultiMeshInstance3D` nodes in the hierarchy, calculates bounding-sphere radius, and positions the camera at a clean 3/4 isometric perspective (`Vector3(1.0, 0.75, 1.0).normalized()`).
+* **Frame Synchronization**: Toggles `render_target_update_mode = UPDATE_ALWAYS`, awaits `RenderingServer.frame_post_draw` twice to ensure both geometry passes and shadow/lighting buffers are fully rendered in Forward+, then disables updates with `UPDATE_DISABLED`.
+* **Neutral Studio Background**: Composites the transparent model render over a smooth vertical gradient (`Color(0.20, 0.22, 0.26)` to `Color(0.12, 0.13, 0.16)`), ensuring both black and white equipment stay clearly visible with high contrast.
+* **Disk & Memory Caching**:
+  - Saved to `user://thumbnails/<asset_id>_<variant>_<version>.png` (`GENERATOR_VERSION = "v3"`).
+  - In-memory dictionary `_memory_cache` ensures instantaneous retrieval for search/filter operations without disk I/O or re-renders.
+  - Emits `thumbnail_ready(asset_id, variant, texture)`; UI cards connect and update dynamically.
+* **Status Bar Progress & Developer Actions**:
+  - Emits `progress_changed(completed, total)`; status bar displays real-time progress (`Thumbnails 87/147`).
+  - Added `View > Developer > "Regenerate All Thumbnails"` to invalidate memory/disk cache and re-render the catalog.
+* **Headless Fallback**: When running headless (`DisplayServer.get_name() == "headless"`), automatically creates stylized category-accented geometric badge icons with 11 distinct category color codes, completely preventing gray square placeholders.
+* **Contact Sheet Compilation**: `ThumbnailRenderer.generate_contact_sheet("docs/thumbnail_sheet.png")` compiles all catalog assets into a unified contact sheet grid.
+
+---
+
+### 3.8 Rigging, Load Estimation & Structural Checks Engine (Sub-phase 3A)
+
+> [!WARNING]
+> **DISCLAIMER: PLANNING AIDS ONLY — NOT STRUCTURAL CERTIFICATION**  
+> All rigging, load, stress, and capacity calculations in Stage-Builder are planning aids and estimation tools only. They do not constitute structural engineering sign-off, load certification, or safety sign-off. Capacities in the catalog are generic placeholder values (`"placeholder": true`). Rigging in real-world environments requires review and approval by a certified structural engineer and qualified production riggers in accordance with applicable local regulations (e.g. ANSI E1.21, DGUV 17/18, EN 17115).
+
+Stage-Builder features a real-time, non-blocking structural statics engine managed by the `RiggingManager` autoload singleton:
+
+1. **Data Model & Capacity Tables**:
+   - Each catalog asset contains structural attributes: `cog_offset`, `truss_profile`, `swl_kg`, `motor_capacity_kg`, `is_support`, `max_vertical_load_kg`, `wind_area_m2`, `drag_coefficient`, and multi-span `load_rating` tables.
+   - All capacities are explicitly generic and editable (`"placeholder": true`).
+2. **Asynchronous Solver Threading**:
+   - The scene graph is never accessed directly from background threads.
+   - Edits are debounced by 150ms on the main thread, snapshotting transforms, weights, and connection hierarchies into a clean data struct.
+   - Solves are dispatched via `WorkerThreadPool` to compute statics and evaluate structural rules asynchronously, guaranteeing uninterrupted 60 FPS viewport interaction.
+   - If a new scene edit occurs during solving, the generation counter supersedes stale runs.
+3. **Rigging Graph & Beam Statics Formulation**:
+   - Continuous horizontal truss assemblies are clustered into spans bounded by supports (towers, hoists, base plates).
+   - Applied point loads at distance $x_i$ along a span of length $L$ generate mid-span bending moments $M_i = P_i \frac{x_i(L - x_i)}{L}$.
+   - Equating this to the mid-span moment of an equivalent centered load ($M = P_{\text{equiv}} \frac{L}{4}$) yields:
+     $$P_{\text{equiv}} = P_i \frac{4 x_i (L - x_i)}{L^2}$$
+   - Distributed self-weight is converted via $P_{\text{udl}} = \frac{w L}{2}$.
+   - Total effective bending load $P_{\text{eff}} = \sum P_{\text{equiv}} + P_{\text{udl}}$ is evaluated against interpolated manufacturer center-point load ratings $C(L)$, scaled by the user-selected static safety factor (default 1.5:1).
+   - Support reactions are calculated via static equilibrium:
+     $$R_A = \sum P_i \frac{L - x_i}{L} + \frac{w L}{2}, \quad R_B = \sum P_i \frac{x_i}{L} + \frac{w L}{2}$$
+4. **Active Structural Rules**:
+   - **Overloaded Truss**: Span effective load exceeds allowable rating at configured safety factor.
+   - **Overloaded Hoist**: Total suspended load exceeds hoist motor WLL / safety factor (default 5:1).
+   - **Overloaded Tower / Support**: Combined reaction exceeds tower/base plate capacity.
+   - **Floating / Unsupported Object**: Equipment suspended in mid-air ($y > 0.05\text{m}$) with no load path to ground or truss.
+   - **Hoist with No Load Path**: Motor hook attached without structural upper anchor.
+   - **Mixed Truss Profiles**: Incompatible truss cross-sections connected in a single continuous span (e.g. F34 box truss mated with F33 triangle truss).
+   - **Non-Rated Attachment**: Fixture hung from an asset lacking designated rigging points.
+5. **Interactive UI & 3D Visualization**:
+   - **3D Rigging Overlay (`O` shortcut)**: Toggleable immediate-mode 3D lines and floating labels showing reaction forces, span utilization, and load vectors, color-coded by utilization:
+     - 🟩 **Green**: $< 60\%$
+     - 🟨 **Yellow**: $60\% - 90\%$
+     - 🟧 **Orange**: $90\% - 100\%$
+     - 🟥 **Red**: $> 100\%$ (Overload)
+   - **Structural Checks Panel (`Ctrl+3` / `Cmd+3`)**: Dockable slide-out inspector displaying the mandatory safety disclaimer, engineering unit selector (`kg`, `kN`, `lb`), safety factor controls, and interactive severity-coded warning cards. Clicking any warning card instantly selects and frames the offending object in the 3D viewport.
+   - **Status Bar Badge**: Real-time indicator displaying `[🔴 X Critical | ⚠️ Y]` or `[✓ Rigging OK]` with click-to-open shortcut.
 
 ---
 

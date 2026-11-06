@@ -188,31 +188,57 @@ func get_asset_by_id(id: String) -> Dictionary:
 func get_asset(id: String) -> Dictionary:
 	return get_asset_by_id(id)
 
-func search_assets(query: String, cat: String = "All", subcat: String = "All") -> Array[Dictionary]:
-	var q := query.strip_edges().to_lower()
-	var result: Array[Dictionary] = []
+static func strip_accents(text: String) -> String:
+	var s := text.to_lower()
+	var accents: Dictionary = {
+		"á": "a", "à": "a", "â": "a", "ä": "a", "ã": "a", "å": "a", "ā": "a",
+		"é": "e", "è": "e", "ê": "e", "ë": "e", "ē": "e",
+		"í": "i", "ì": "i", "î": "i", "ï": "i", "ī": "i",
+		"ó": "o", "ò": "o", "ô": "o", "ö": "o", "õ": "o", "ō": "o", "ø": "o",
+		"ú": "u", "ù": "u", "û": "u", "ü": "u", "ū": "u",
+		"ñ": "n", "ç": "c", "ß": "ss", "æ": "ae", "œ": "oe"
+	}
+	for acc in accents:
+		s = s.replace(acc, accents[acc])
+	return s
 
+static func matches_search_words(asset: Dictionary, words: Array[String]) -> bool:
+	if words.is_empty():
+		return true
+
+	var id_raw: String = asset.get("id", "")
+	var id_spaced: String = strip_accents(id_raw).replace("_", " ")
+	var name_clean: String = strip_accents(asset.get("name", ""))
+	var cat_clean: String = strip_accents(asset.get("category", ""))
+	var subcat_clean: String = strip_accents(asset.get("subcategory", ""))
+	var tags_list: Array = asset.get("tags", [])
+	var tags_clean: String = strip_accents(" ".join(tags_list))
+
+	var corpus := "%s %s %s %s %s %s" % [id_spaced, id_raw.to_lower(), name_clean, cat_clean, subcat_clean, tags_clean]
+
+	for w in words:
+		if not (w in corpus):
+			return false
+	return true
+
+func search_assets(query: String, cat: String = "All", subcat: String = "All") -> Array[Dictionary]:
+	var q := strip_accents(query.strip_edges())
+	var words: Array[String] = []
+	if q != "":
+		for part in q.split(" ", false):
+			var w := part.strip_edges()
+			if w != "":
+				words.append(w)
+
+	var result: Array[Dictionary] = []
 	for item in _assets_by_id.values():
 		if cat != "All" and item.get("category", "") != cat:
 			continue
 		if subcat != "All" and subcat != "" and item.get("subcategory", "") != subcat:
 			continue
-
-		if q == "":
-			result.append(item)
+		if not matches_search_words(item, words):
 			continue
-
-		var name_match: bool = q in item.get("name", "").to_lower()
-		var cat_match: bool = q in item.get("category", "").to_lower()
-		var subcat_match: bool = q in item.get("subcategory", "").to_lower()
-		var tag_match: bool = false
-		for tag in item.get("tags", []):
-			if q in str(tag).to_lower():
-				tag_match = true
-				break
-
-		if name_match or cat_match or subcat_match or tag_match:
-			result.append(item)
+		result.append(item)
 
 	return result
 

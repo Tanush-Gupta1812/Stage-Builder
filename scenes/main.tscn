@@ -7,7 +7,7 @@
 [ext_resource type="Script" path="res://scripts/viewport/stage_camera.gd" id="5_cam"]
 [ext_resource type="Script" path="res://scripts/viewport/ground_environment.gd" id="6_ground"]
 [ext_resource type="Script" path="res://scripts/viewport/grid_plane.gd" id="7_grid"]
-[ext_resource type="Script" path="res://scripts/viewport/transform_gizmo.gd" id="8_gizmo"]
+[ext_resource type="Script" path="res://scripts/viewport/gizmo/gizmo_controller.gd" id="8_gizmo"]
 [ext_resource type="Script" path="res://scripts/ui/properties_panel.gd" id="9_prop"]
 [ext_resource type="Script" path="res://scripts/ui/status_bar.gd" id="10_stat"]
 
@@ -96,22 +96,20 @@ theme_override_constants/separation = 6
 layout_mode = 2
 
 [node name="AssetTitle" type="Label" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/HeaderHBox"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 14
 text = "Equipment Catalog"
 clip_text = true
 
 [node name="ViewModeBtn" type="Button" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/HeaderHBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
 text = "Grid"
 
 [node name="CollapseLeftBtn" type="Button" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/HeaderHBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
 tooltip_text = "Collapse Panel (Ctrl+[)"
 text = "◀"
 
@@ -145,7 +143,6 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
 text = "All"
 clip_text = true
 
@@ -153,7 +150,6 @@ clip_text = true
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
 text = "Favorites ★"
 clip_text = true
 
@@ -161,22 +157,50 @@ clip_text = true
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
 text = "Recent 🕒"
 clip_text = true
 
 [node name="ScrollContainer" type="ScrollContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="AssetListContainer" type="VBoxContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/ScrollContainer"]
+[node name="CatalogScrollContent" type="VBoxContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/ScrollContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="EmptyStateContainer" type="VBoxContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/ScrollContainer/CatalogScrollContent"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="EmptySearchLabel" type="Label" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/ScrollContainer/CatalogScrollContent/EmptyStateContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.62, 0.68, 1)
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ClearSearchBtn" type="Button" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/ScrollContainer/CatalogScrollContent/EmptyStateContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Clear search"
+
+[node name="AssetListContainer" type="VBoxContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/ScrollContainer/CatalogScrollContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="AssetGridContainer" type="HFlowContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/ScrollContainer"]
+[node name="AssetGridContainer" type="HFlowContainer" parent="VBox/MainSplit/AssetPanel/AssetMargin/AssetVBox/ScrollContainer/CatalogScrollContent"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
@@ -211,7 +235,7 @@ script = ExtResource("7_grid")
 
 [node name="StageContainer" type="Node3D" parent="VBox/MainSplit/StageViewport/SubViewport"]
 
-[node name="TransformGizmo" type="Node3D" parent="VBox/MainSplit/StageViewport/SubViewport"]
+[node name="GizmoController" type="Node3D" parent="VBox/MainSplit/StageViewport/SubViewport"]
 script = ExtResource("8_gizmo")
 
 [node name="PropertiesPanel" type="PanelContainer" parent="VBox/MainSplit"]
@@ -249,42 +273,37 @@ text = "⚙
 
 [node name="StatusBar" type="PanelContainer" parent="VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 28)
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_statusbar")
 script = ExtResource("10_stat")
 
 [node name="StatusHBox" type="HBoxContainer" parent="VBox/StatusBar"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
 [node name="StatusLabel" type="Label" parent="VBox/StatusBar/StatusHBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 11
 text = "Ready"
 
 [node name="GridSnapButton" type="Button" parent="VBox/StatusBar/StatusHBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
 text = "Grid Snap: ON"
 
 [node name="GridStepButton" type="OptionButton" parent="VBox/StatusBar/StatusHBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
 
 [node name="PointSnapButton" type="Button" parent="VBox/StatusBar/StatusHBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
 text = "Point Snap: ON"
 
 [node name="StatsLabel" type="Label" parent="VBox/StatusBar/StatusHBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
 text = "Items: 0  |  Weight: 0.0 kg  |  FPS: 60"
 

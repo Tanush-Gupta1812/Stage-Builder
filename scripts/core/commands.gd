@@ -2,6 +2,7 @@ class_name BaseCommand
 extends RefCounted
 
 const StageGroup = preload("res://scripts/core/stage_group.gd")
+const TransformGuard = preload("res://scripts/core/transform_guard.gd")
 
 ## Base class for all undoable commands in Stage-Builder.
 
@@ -41,7 +42,8 @@ class PlaceCommand extends BaseCommand:
 			var obj := placed_objects[i]
 			if not stage_container.is_ancestor_of(obj):
 				stage_container.add_child(obj)
-			obj.global_transform = transforms[i]
+			var cand: Transform3D = transforms[i] if i < transforms.size() else obj.global_transform
+			obj.global_transform = TransformGuard.sanitize(cand, Transform3D.IDENTITY, "PlaceCommand.execute")
 			obj.visible = true
 		AppState.set_selection(placed_objects)
 		AppState.project_modified.emit()
@@ -89,7 +91,8 @@ class DeleteCommand extends BaseCommand:
 			if is_instance_valid(node) and is_instance_valid(parent):
 				if not parent.is_ancestor_of(node):
 					parent.add_child(node)
-				node.global_transform = transforms[i]
+				var cand: Transform3D = transforms[i] if i < transforms.size() else Transform3D.IDENTITY
+				node.global_transform = TransformGuard.sanitize(cand, Transform3D.IDENTITY, "DeleteCommand.undo")
 		AppState.set_selection(deleted_nodes)
 		AppState.project_modified.emit()
 
@@ -121,13 +124,21 @@ class TransformCommand extends BaseCommand:
 	func execute() -> void:
 		for i in range(target_nodes.size()):
 			if is_instance_valid(target_nodes[i]) and i < new_transforms.size():
-				target_nodes[i].global_transform = new_transforms[i]
+				var cand: Transform3D = new_transforms[i]
+				if TransformGuard.is_finite_transform(cand):
+					target_nodes[i].global_transform = cand
+				else:
+					TransformGuard.warn_invalid_transform("TransformCommand.execute", "Rejected invalid transform for node " + target_nodes[i].name)
 		AppState.project_modified.emit()
 
 	func undo() -> void:
 		for i in range(target_nodes.size()):
 			if is_instance_valid(target_nodes[i]) and i < old_transforms.size():
-				target_nodes[i].global_transform = old_transforms[i]
+				var cand: Transform3D = old_transforms[i]
+				if TransformGuard.is_finite_transform(cand):
+					target_nodes[i].global_transform = cand
+				else:
+					TransformGuard.warn_invalid_transform("TransformCommand.undo", "Rejected invalid transform for node " + target_nodes[i].name)
 		AppState.project_modified.emit()
 
 	func get_description() -> String:

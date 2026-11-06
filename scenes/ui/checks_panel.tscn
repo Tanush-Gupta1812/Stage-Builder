@@ -1,0 +1,127 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/checks_panel.gd" id="1_checks"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.12, 0.13, 0.15, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.24, 0.26, 0.3, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="ChecksPanel" type="PanelContainer"]
+custom_minimum_size = Vector2(280, 0)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+script = ExtResource("1_checks")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HeaderHBox" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Margin/VBox/HeaderHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.4, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "Structural Checks"
+
+[node name="CloseBtn" type="Button" parent="Margin/VBox/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = " ✕ "
+
+[node name="BadgeSummaryLabel" type="Label" parent="Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "✓ All structural checks pass"
+
+[node name="ControlsHBox" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="UnitLabel" type="Label" parent="Margin/VBox/ControlsHBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Units:"
+
+[node name="UnitOpt" type="OptionButton" parent="Margin/VBox/ControlsHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SFHBox" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="StaticSfLabel" type="Label" parent="Margin/VBox/SFHBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Static SF:"
+
+[node name="StaticSfSpin" type="SpinBox" parent="Margin/VBox/SFHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 10.0
+step = 0.1
+value = 1.5
+
+[node name="MotorSfLabel" type="Label" parent="Margin/VBox/SFHBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Motor SF:"
+
+[node name="MotorSfSpin" type="SpinBox" parent="Margin/VBox/SFHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 20.0
+step = 0.5
+value = 5.0
+
+[node name="HSeparator1" type="HSeparator" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="WarningsListContainer" type="VBoxContainer" parent="Margin/VBox/Scroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="HSeparator2" type="HSeparator" parent="Margin/VBox"]
+layout_mode = 2
+
+[node name="DisclaimerLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.65, 0.68, 1)
+theme_override_font_sizes/font_size = 9
+text = "All calculations are PLANNING AIDS ONLY, not engineering sign-off or structural certification. Verify all rigging, loads, and ballasting with a certified structural engineer or licensed rigger before production."
+autowrap_mode = 3

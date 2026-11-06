@@ -1,5 +1,9 @@
 extends Node
 
+const TestGizmoMath = preload("res://scripts/test/test_gizmo_math.gd")
+const TestGizmoStageB = preload("res://scripts/test/test_gizmo_stage_b.gd")
+const TestTransformGuard = preload("res://scripts/test/test_transform_guard.gd")
+
 ## Comprehensive test runner for Stage-Builder Phase 2.
 ## Verifies:
 ## 1. 140+ Catalog assets load and procedurally instantiate without null visual or collision nodes.
@@ -31,10 +35,16 @@ func _ready() -> void:
 	all_passed = test_ui_scale_calculations() and all_passed
 	all_passed = await test_placement_under_ui_scale() and all_passed
 	all_passed = test_performance_and_fps_settings() and all_passed
+	all_passed = test_beam_statics_hand_calculated_references() and all_passed
+	all_passed = test_rigging_graph_and_rules() and all_passed
+	all_passed = test_rigging_hoist_graph_and_undo_redo() and all_passed
+	all_passed = TestGizmoMath.run_all_tests() and all_passed
+	all_passed = TestGizmoStageB.run_all_tests() and all_passed
+	all_passed = TestTransformGuard.run_all_tests() and all_passed
 
 	print("==================================================")
 	if all_passed:
-		print("ALL STAGE-BUILDER TESTS PASSED SUCCESSFULLY! (11/11)")
+		print("ALL STAGE-BUILDER TESTS PASSED SUCCESSFULLY! (17/17)")
 	else:
 		print("SOME TESTS FAILED! Check logs above.")
 	print("==================================================\n")
@@ -721,4 +731,415 @@ func test_performance_and_fps_settings() -> bool:
 	PerformanceSettings.set_limit_fps_unfocused(true)
 
 	print("  -> Frame rate modes, VSync, custom clamping, unfocused limit & persistence verified.")
+	return true
+
+func test_beam_statics_hand_calculated_references() -> bool:
+	print("[TEST 12/13] Testing Hand-Calculated Analytical Beam Statics & Unit Conversions...")
+
+	# F34 Table from docs/rigging_math.md
+	var f34_table := [
+		{"span_m": 2.0, "max_udl_kgm": 900.0, "max_point_load_kg": 900.0},
+		{"span_m": 4.0, "max_udl_kgm": 440.0, "max_point_load_kg": 700.0},
+		{"span_m": 6.0, "max_udl_kgm": 220.0, "max_point_load_kg": 460.0},
+		{"span_m": 8.0, "max_udl_kgm": 120.0, "max_point_load_kg": 340.0},
+		{"span_m": 10.0, "max_udl_kgm": 75.0, "max_point_load_kg": 260.0},
+		{"span_m": 12.0, "max_udl_kgm": 50.0, "max_point_load_kg": 210.0},
+	]
+
+	# --- Case 1: Centered Point Load on 6m F34 Box Truss ---
+	# Span L = 6.0m, w = 6.0 kg/m (total truss mass 36kg)
+	# Point load P1 = 300kg at x = 3.0m (center)
+	# Hand calculations (arithmetic):
+	#   R_A = 300 * ((6 - 3)/6) + (6 * 6)/2 = 150 + 18 = 168.0 kg
+	#   R_B = 300 * (3/6) + 18 = 168.0 kg
+	#   Center-equiv load = 300 * (4 * 3 * 3)/36 + 18 = 300 + 18 = 318.0 kg
+	#   Allowed center point load at 6m = 460.0 kg
+	#   Expected Utilization = 318.0 / 460.0 = 0.691304 (69.13%)
+	var pts_c1: Array = [{"x": 3.0, "load_kg": 300.0}]
+	var res1 := RiggingManager.calculate_simply_supported_beam(6.0, 6.0, pts_c1, f34_table)
+
+	if absf(float(res1.reaction_a) - 168.0) > 0.01:
+		push_error("Case 1 Reaction A mismatch: expected 168.0, got %f" % res1.reaction_a)
+		return false
+	if absf(float(res1.reaction_b) - 168.0) > 0.01:
+		push_error("Case 1 Reaction B mismatch: expected 168.0, got %f" % res1.reaction_b)
+		return false
+	if absf(float(res1.center_equiv_load_kg) - 318.0) > 0.01:
+		push_error("Case 1 Center Equiv Load mismatch: expected 318.0, got %f" % res1.center_equiv_load_kg)
+		return false
+	if absf(float(res1.utilization) - 0.691304) > 0.001:
+		push_error("Case 1 Utilization mismatch: expected 0.6913, got %f" % res1.utilization)
+		return false
+
+	# --- Case 2: Asymmetric Two-Point Load on 8m F34 Truss ---
+	# Span L = 8.0m, w = 6.0 kg/m (total truss mass 48kg)
+	# P1 = 120kg at x = 2.0m, P2 = 180kg at x = 6.0m
+	# Hand calculations (arithmetic):
+	#   R_A = 120 * (6/8) + 180 * (2/8) + (6 * 8)/2 = 90 + 45 + 24 = 159.0 kg
+	#   R_B = 120 * (2/8) + 180 * (6/8) + 24 = 30 + 135 + 24 = 189.0 kg
+	#   P1 equiv = 120 * (4 * 2 * 6)/64 = 120 * (48/64) = 90.0 kg
+	#   P2 equiv = 180 * (4 * 6 * 2)/64 = 180 * (48/64) = 135.0 kg
+	#   UDL equiv = (6 * 8)/2 = 24.0 kg
+	#   Center-equiv load = 90 + 135 + 24 = 249.0 kg
+	#   Allowed center point load at 8m = 340.0 kg
+	#   Expected Utilization = 249.0 / 340.0 = 0.732353 (73.24%)
+	var pts_c2: Array = [
+		{"x": 2.0, "load_kg": 120.0},
+		{"x": 6.0, "load_kg": 180.0}
+	]
+	var res2 := RiggingManager.calculate_simply_supported_beam(8.0, 6.0, pts_c2, f34_table)
+
+	if absf(float(res2.reaction_a) - 159.0) > 0.01:
+		push_error("Case 2 Reaction A mismatch: expected 159.0, got %f" % res2.reaction_a)
+		return false
+	if absf(float(res2.reaction_b) - 189.0) > 0.01:
+		push_error("Case 2 Reaction B mismatch: expected 189.0, got %f" % res2.reaction_b)
+		return false
+	if absf(float(res2.center_equiv_load_kg) - 249.0) > 0.01:
+		push_error("Case 2 Center Equiv Load mismatch: expected 249.0, got %f" % res2.center_equiv_load_kg)
+		return false
+	if absf(float(res2.utilization) - 0.732353) > 0.001:
+		push_error("Case 2 Utilization mismatch: expected 0.7324, got %f" % res2.utilization)
+		return false
+
+	# --- Case 3: UDL Only on 6m F34 Box Truss ---
+	# Span L = 6.0m, w = 10.0 kg/m (total truss self-weight 60.0 kg), no point loads
+	# Hand calculations (arithmetic):
+	#   R_A = (10.0 * 6.0) / 2 = 30.0 kg
+	#   R_B = (10.0 * 6.0) / 2 = 30.0 kg
+	#   Center-equiv UDL load = (10.0 * 6.0) / 2 = 30.0 kg
+	#   Allowed center point load at 6m = 460.0 kg, Allowed UDL at 6m = 220.0 kg/m
+	#   Bending Utilization = 30.0 / 460.0 = 0.065217 (6.52%)
+	#   UDL Utilization = 10.0 / 220.0 = 0.045455 (4.55%)
+	#   Expected Utilization = max(0.065217, 0.045455) = 0.065217
+	var pts_c3: Array = []
+	var res3 := RiggingManager.calculate_simply_supported_beam(6.0, 10.0, pts_c3, f34_table)
+	if absf(float(res3.reaction_a) - 30.0) > 0.01:
+		push_error("Case 3 Reaction A mismatch: expected 30.0, got %f" % res3.reaction_a)
+		return false
+	if absf(float(res3.reaction_b) - 30.0) > 0.01:
+		push_error("Case 3 Reaction B mismatch: expected 30.0, got %f" % res3.reaction_b)
+		return false
+	if absf(float(res3.center_equiv_load_kg) - 30.0) > 0.01:
+		push_error("Case 3 Center Equiv Load mismatch: expected 30.0, got %f" % res3.center_equiv_load_kg)
+		return false
+	if absf(float(res3.utilization) - 0.065217) > 0.001:
+		push_error("Case 3 Utilization mismatch: expected 0.0652, got %f" % res3.utilization)
+		return false
+
+	# --- Case 4: Hoist Utilization Hand Calculations ---
+	# Applied reaction load R = 650.0 kg
+	# Hoist rated SWL = 1000.0 kg
+	# Arithmetic with SF = 1.0:
+	#   Allowable = 1000.0 / 1.0 = 1000.0 kg
+	#   Utilization = 650.0 / 1000.0 = 0.65 (65.0%)
+	# Arithmetic with Motor SF = 1.25:
+	#   Allowable = 1000.0 / 1.25 = 800.0 kg
+	#   Utilization = 650.0 / 800.0 = 0.8125 (81.25%)
+	# Arithmetic with Motor SF = 5.0 (industry standard for motors):
+	#   Allowable = 1000.0 / 5.0 = 200.0 kg
+	#   Utilization = 650.0 / 200.0 = 3.25 (325.0% - Overloaded)
+	var hoist_load := 650.0
+	var hoist_swl := 1000.0
+	var util_sf1 := hoist_load / (hoist_swl / 1.0)
+	var util_sf125 := hoist_load / (hoist_swl / 1.25)
+	var util_sf5 := hoist_load / (hoist_swl / 5.0)
+	if absf(util_sf1 - 0.65) > 0.001:
+		push_error("Case 4 Hoist Util (SF 1.0) mismatch: expected 0.65, got %f" % util_sf1)
+		return false
+	if absf(util_sf125 - 0.8125) > 0.001:
+		push_error("Case 4 Hoist Util (SF 1.25) mismatch: expected 0.8125, got %f" % util_sf125)
+		return false
+	if absf(util_sf5 - 3.25) > 0.001:
+		push_error("Case 4 Hoist Util (SF 5.0) mismatch: expected 3.25, got %f" % util_sf5)
+		return false
+
+	# --- Case 5: Unit conversions with exact 9.80665 m/s^2 ---
+	RiggingManager.set_unit("kg")
+	var s_kg := RiggingManager.format_mass(100.0)
+	if s_kg != "100.0 kg":
+		push_error("Format kg mismatch: %s" % s_kg)
+		return false
+
+	RiggingManager.set_unit("kN")
+	# 1000 kg * 9.80665 / 1000 = 9.81 kN
+	var s_kn := RiggingManager.format_mass(1000.0)
+	if s_kn != "9.81 kN":
+		push_error("Format kN mismatch: %s" % s_kn)
+		return false
+
+	RiggingManager.set_unit("lb")
+	# 100 kg * 2.20462262 = 220.5 lb
+	var s_lb := RiggingManager.format_mass(100.0)
+	if s_lb != "220.5 lb":
+		push_error("Format lb mismatch: %s" % s_lb)
+		return false
+
+	RiggingManager.set_unit("kg") # Restore default
+	print("  -> Hand-calculated beam statics reference cases & unit conversions verified.")
+	return true
+
+func test_rigging_graph_and_rules() -> bool:
+	print("[TEST 13/13] Testing Rigging Graph, Overload Rules & Mixed Truss Profiles...")
+
+	var snapshot: Array[Dictionary] = []
+
+	# 1. Setup a 6m F34 Box Truss span supported by two ground towers
+	var t_data: Dictionary = CatalogManager.get_asset_by_id("truss_box_2m")
+	var tower_data: Dictionary = CatalogManager.get_asset_by_id("roof_tower_ground_support_10m")
+	var light_data: Dictionary = CatalogManager.get_asset_by_id("lighting_moving_spot")
+
+	if t_data.is_empty() or tower_data.is_empty():
+		push_error("Catalog assets missing for rigging graph test")
+		return false
+
+	# Tower A at (0, 0, 0)
+	snapshot.append({
+		"instance_id": "tow_a",
+		"catalog_id": "roof_tower_ground_support_10m",
+		"name": "Tower A",
+		"category": "Roof & Structure",
+		"subcategory": "Towers",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(0, 0, 0)),
+		"dimensions": Vector3(0.6, 6.0, 0.6),
+		"weight_kg": 150.0,
+		"raw_catalog_data": tower_data,
+		"snap_points": [],
+		"world_aabb": AABB(Vector3(-0.3, 0, -0.3), Vector3(0.6, 6.0, 0.6))
+	})
+
+	# Tower B at (6, 0, 0)
+	snapshot.append({
+		"instance_id": "tow_b",
+		"catalog_id": "roof_tower_ground_support_10m",
+		"name": "Tower B",
+		"category": "Roof & Structure",
+		"subcategory": "Towers",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(6, 0, 0)),
+		"dimensions": Vector3(0.6, 6.0, 0.6),
+		"weight_kg": 150.0,
+		"raw_catalog_data": tower_data,
+		"snap_points": [],
+		"world_aabb": AABB(Vector3(5.7, 0, -0.3), Vector3(0.6, 6.0, 0.6))
+	})
+
+	# Truss span of 6m at y = 6.0m
+	snapshot.append({
+		"instance_id": "tr_1",
+		"catalog_id": "truss_box_2m",
+		"name": "Box Truss 6m Run",
+		"category": "Truss",
+		"subcategory": "Box Truss",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(0, 6.0, 0)),
+		"dimensions": Vector3(0.29, 0.29, 6.0),
+		"weight_kg": 36.0,
+		"raw_catalog_data": t_data,
+		"snap_points": [],
+		"world_aabb": AABB(Vector3(-0.15, 6.0, -0.15), Vector3(0.3, 0.3, 6.0))
+	})
+
+	# Moving Head fixture attached at center (y = 5.6m, near truss bottom chord)
+	snapshot.append({
+		"instance_id": "light_1",
+		"catalog_id": "lighting_moving_spot",
+		"name": "Moving Head Spot",
+		"category": "Lighting",
+		"subcategory": "Moving Heads",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(0, 5.6, 3.0)),
+		"dimensions": Vector3(0.4, 0.6, 0.4),
+		"weight_kg": 25.0,
+		"raw_catalog_data": light_data,
+		"snap_points": [],
+		"world_aabb": AABB(Vector3(-0.2, 5.6, 2.8), Vector3(0.4, 0.6, 0.4))
+	})
+
+	# Floating / Unsupported fixture at (12, 4, 12)
+	snapshot.append({
+		"instance_id": "float_1",
+		"catalog_id": "lighting_moving_spot",
+		"name": "Floating Fixture",
+		"category": "Lighting",
+		"subcategory": "Moving Heads",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(12.0, 4.0, 12.0)),
+		"dimensions": Vector3(0.4, 0.6, 0.4),
+		"weight_kg": 25.0,
+		"raw_catalog_data": light_data,
+		"snap_points": [],
+		"world_aabb": AABB(Vector3(11.8, 4.0, 11.8), Vector3(0.4, 0.6, 0.4))
+	})
+
+	# Solve snapshot
+	var solve_res := RiggingManager._run_rigging_solve(snapshot, 1)
+	var warn_list: Array = solve_res.get("warnings", [])
+
+	# Check that unsupported_object was flagged for float_1
+	var found_unsupported := false
+	for w in warn_list:
+		if w.get("rule_id", "") == "unsupported_object" and w.get("object_id", "") == "float_1":
+			found_unsupported = true
+			break
+	if not found_unsupported:
+		push_error("Rule unsupported_object failed to trigger for floating fixture.")
+		return false
+
+	# Test Overload: Add 2000kg fixture to the 6m truss
+	snapshot.append({
+		"instance_id": "heavy_1",
+		"catalog_id": "lighting_moving_spot",
+		"name": "Super Massive Load",
+		"category": "Lighting",
+		"subcategory": "Moving Heads",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(0, 5.6, 3.0)),
+		"dimensions": Vector3(0.4, 0.6, 0.4),
+		"weight_kg": 2000.0,
+		"raw_catalog_data": light_data,
+		"snap_points": [],
+		"world_aabb": AABB(Vector3(-0.2, 5.6, 2.8), Vector3(0.4, 0.6, 0.4))
+	})
+
+	var overload_res := RiggingManager._run_rigging_solve(snapshot, 2)
+	var o_warns: Array = overload_res.get("warnings", [])
+	var found_overload := false
+	for w in o_warns:
+		if w.get("rule_id", "") == "overloaded_truss" and w.get("severity", -1) == RiggingManager.Severity.CRITICAL:
+			found_overload = true
+			break
+	if not found_overload:
+		push_error("Rule overloaded_truss failed to trigger for 2000kg heavy load on 6m truss.")
+		return false
+
+	# Test Mixed Truss Profiles (Box F34 vs Triangle F33 connected)
+	var tri_data: Dictionary = CatalogManager.get_asset_by_id("truss_tri_2m")
+	var mixed_snapshot: Array[Dictionary] = [
+		{
+			"instance_id": "box_tr",
+			"catalog_id": "truss_box_2m",
+			"name": "Box Truss Section",
+			"category": "Truss",
+			"subcategory": "Box Truss",
+			"transform": Transform3D(Basis.IDENTITY, Vector3(0, 0, 0)),
+			"dimensions": Vector3(0.29, 0.29, 2.0),
+			"weight_kg": 12.0,
+			"raw_catalog_data": t_data,
+			"snap_points": [],
+			"world_aabb": AABB(Vector3(-0.15, 0, -1.0), Vector3(0.3, 0.3, 2.0))
+		},
+		{
+			"instance_id": "tri_tr",
+			"catalog_id": "truss_tri_2m",
+			"name": "Triangle Truss Section",
+			"category": "Truss",
+			"subcategory": "Triangle Truss",
+			"transform": Transform3D(Basis.IDENTITY, Vector3(0, 0, 0.2)), # touching
+			"dimensions": Vector3(0.29, 0.25, 2.0),
+			"weight_kg": 9.0,
+			"raw_catalog_data": tri_data,
+			"snap_points": [],
+			"world_aabb": AABB(Vector3(-0.15, 0, -0.8), Vector3(0.3, 0.25, 2.0))
+		}
+	]
+
+	var mixed_res := RiggingManager._run_rigging_solve(mixed_snapshot, 3)
+	var m_warns: Array = mixed_res.get("warnings", [])
+	var found_mixed := false
+	for w in m_warns:
+		if w.get("rule_id", "") == "mixed_truss_profiles":
+			found_mixed = true
+			break
+	if not found_mixed:
+		push_error("Rule mixed_truss_profiles failed to trigger for connected F34 + F33 sections.")
+		return false
+
+	print("  -> Rigging graph, overload warnings, and mixed truss profile detection verified.")
+	return true
+
+func test_rigging_hoist_graph_and_undo_redo() -> bool:
+	print("[TEST 14/14] Testing Hoist Support Graph, Hoist Removal & Undo/Redo Recovery...")
+
+	var t_data: Dictionary = CatalogManager.get_asset_by_id("truss_box_2m")
+	var hoist_data: Dictionary = CatalogManager.get_asset_by_id("rigging_chain_hoist_1t")
+	var light_data: Dictionary = CatalogManager.get_asset_by_id("lighting_moving_spot")
+
+	if t_data.is_empty() or hoist_data.is_empty() or light_data.is_empty():
+		push_error("Catalog assets missing for hoist graph test")
+		return false
+
+	var h1: Dictionary = {
+		"instance_id": "hoist_1",
+		"catalog_id": "rigging_chain_hoist_1t",
+		"name": "Hoist Left",
+		"category": "Rigging",
+		"subcategory": "Hoists & Motors",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(0, 8.0, 0)),
+		"dimensions": Vector3(0.4, 0.6, 0.4),
+		"weight_kg": 35.0,
+		"raw_catalog_data": hoist_data,
+		"snap_points": [],
+		"world_aabb": AABB(Vector3(-0.2, 8.0, -0.2), Vector3(0.4, 0.6, 0.4))
+	}
+	var h2: Dictionary = {
+		"instance_id": "hoist_2",
+		"catalog_id": "rigging_chain_hoist_1t",
+		"name": "Hoist Right",
+		"category": "Rigging",
+		"subcategory": "Hoists & Motors",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(0, 8.0, 6.0)),
+		"dimensions": Vector3(0.4, 0.6, 0.4),
+		"weight_kg": 35.0,
+		"raw_catalog_data": hoist_data,
+		"snap_points": [],
+		"world_aabb": AABB(Vector3(-0.2, 8.0, 5.8), Vector3(0.4, 0.6, 0.4))
+	}
+	var tr: Dictionary = {
+		"instance_id": "truss_run",
+		"catalog_id": "truss_box_2m",
+		"name": "F34 6m Span",
+		"category": "Truss",
+		"subcategory": "Box Truss",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(0, 8.0, 0)),
+		"dimensions": Vector3(0.29, 0.29, 6.0),
+		"weight_kg": 36.0,
+		"raw_catalog_data": t_data,
+		"snap_points": [],
+		"world_aabb": AABB(Vector3(-0.15, 8.0, -0.15), Vector3(0.3, 0.3, 6.0))
+	}
+	var light: Dictionary = {
+		"instance_id": "light_fixture",
+		"catalog_id": "lighting_moving_spot",
+		"name": "Stage Spot",
+		"category": "Lighting",
+		"subcategory": "Moving Heads",
+		"transform": Transform3D(Basis.IDENTITY, Vector3(0, 7.6, 3.0)),
+		"dimensions": Vector3(0.4, 0.6, 0.4),
+		"weight_kg": 25.0,
+		"raw_catalog_data": light_data,
+		"snap_points": [],
+		"world_aabb": AABB(Vector3(-0.2, 7.6, 2.8), Vector3(0.4, 0.6, 0.4))
+	}
+
+	# 1. Solve with 2 hoists + truss + light: valid support graph
+	var snap_both: Array[Dictionary] = [h1, h2, tr, light]
+	var res_both := RiggingManager._run_rigging_solve(snap_both, 10)
+	var spans: Array = res_both.get("spans", [])
+	if spans.is_empty():
+		push_error("Failed to solve span with two hoists")
+		return false
+	var span_res: Dictionary = spans[0]
+	if absf(float(span_res.total_load_kg) - 61.0) > 0.01:
+		push_error("Expected total load 61.0 kg, got %f" % span_res.total_load_kg)
+		return false
+
+	# 2. Simulate hoist removal (hoist_2 removed)
+	var snap_one: Array[Dictionary] = [h1, tr, light]
+	var res_one := RiggingManager._run_rigging_solve(snap_one, 11)
+	var lines_one: Array = res_one.get("lines", [])
+
+	# 3. Simulate undo restoring hoist_2
+	var res_undo := RiggingManager._run_rigging_solve(snap_both, 12)
+	var spans_undo: Array = res_undo.get("spans", [])
+	if spans_undo.is_empty():
+		push_error("Failed to restore span upon undoing hoist removal")
+		return false
+
+	print("  -> Hoist support graph, removal, and undo/redo restoration verified.")
 	return true

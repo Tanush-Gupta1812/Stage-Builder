@@ -20,6 +20,9 @@ CatalogManager="*res://scripts/core/catalog_manager.gd"
 CommandManager="*res://scripts/core/command_manager.gd"
 UIScale="*res://scripts/core/ui_scale.gd"
 PerformanceSettings="*res://scripts/core/performance_settings.gd"
+ThumbnailRenderer="*res://scripts/tools/thumbnail_generator.gd"
+RiggingManager="*res://scripts/core/rigging_manager.gd"
+
 
 [display]
 
